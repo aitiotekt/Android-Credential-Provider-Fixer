@@ -1,0 +1,28 @@
+repos:
+  - repo: local
+    hooks:
+      - id: docs-check
+        name: docs symlink and translation check
+        entry: node scripts/dev-cli.mts docs check
+        language: system
+        pass_filenames: false
+      - id: version-check
+        name: workspace version check
+        entry: node scripts/dev-cli.mts version check
+        language: system
+        pass_filenames: false
+      - id: biome
+        name: biome check
+        entry: pnpm lint
+        language: system
+        pass_filenames: false
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all -- --check
+        language: system
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        language: system
+        pass_filenames: false

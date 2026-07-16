@@ -1,0 +1,24 @@
+[package]
+name = "acp-fixer-tauri"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Tauri desktop application for Android Credential Provider Fixer"
+
+[lib]
+name = "acp_fixer_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+acp-fixer-core.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+tauri.workspace = true
+tauri-plugin-shell.workspace = true
+tokio.workspace = true

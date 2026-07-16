@@ -1,0 +1,35 @@
+temp/*
+!temp/.gitkeep
+
+# Tooling
+.mise.local.toml
+.env
+.env.*
+!.env.example
+
+# JavaScript
+**/node_modules/
+**/dist/
+**/dist-tsc/
+**/.turbo/
+**/.vite/
+**/.vitest/
+**/*.tsbuildinfo
+**/coverage/
+**/test-results/
+
+# Rust and Tauri
+target/
+**/target/
+apps/tauri-app/src-tauri/gen/
+
+# VitePress
+docsite/.vitepress/cache/
+docsite/.vitepress/dist/
+docsite/.vitepress/.temp/
+
+# Editors and operating systems
+.idea/
+.vscode/settings.json
+.vscode/*.local.json
+**/.DS_Store

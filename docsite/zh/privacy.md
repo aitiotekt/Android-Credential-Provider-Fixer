@@ -1,0 +1,1 @@
+../../docs/zh/PRIVACY.md

@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"forceConsistentCasingInFileNames": true,
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"resolveJsonModule": true,
+		"strict": true
+	}
+}

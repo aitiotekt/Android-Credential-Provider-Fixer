@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"emitDeclarationOnly": true,
+		"jsx": "preserve",
+		"jsxImportSource": "@solidjs/web",
+		"lib": ["ES2024", "DOM", "DOM.Iterable"],
+		"outDir": "./dist-tsc/app",
+		"rootDir": "./src",
+		"skipLibCheck": true,
+		"target": "ES2024",
+		"types": ["vite/client"]
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}

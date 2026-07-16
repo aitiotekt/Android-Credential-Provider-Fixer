@@ -1,0 +1,78 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ACP_FIXER_REAL_DEVICE_TESTS: "0"
+  ACP_FIXER_ALLOW_SETTINGS_WRITE_TESTS: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    name: Quality and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Tauri system dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          include-docs: "true"
+
+      - name: Verify workspace
+        run: mise exec -- just verify
+
+  desktop-build:
+    name: Desktop build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            runner: macos-15
+          - name: macOS Intel
+            runner: macos-15-intel
+          - name: Windows x64
+            runner: windows-2025
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Test portable Rust crates
+        run: mise exec -- cargo test -p acp-fixer-core -p acp-fixer-cli
+
+      - name: Build unsigned desktop application
+        run: mise exec -- just build-tauri

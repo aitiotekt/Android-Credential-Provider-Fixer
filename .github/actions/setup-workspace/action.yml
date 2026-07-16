@@ -1,0 +1,26 @@
+name: Setup workspace
+description: Install the pinned mise toolchain and pnpm dependencies.
+
+inputs:
+  include-docs:
+    description: Install the independent VitePress workspace.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Install mise tools
+      uses: jdx/mise-action@v3
+      with:
+        install: true
+        cache: true
+
+    - name: Install application dependencies
+      shell: bash
+      run: mise exec -- pnpm install --frozen-lockfile
+
+    - name: Install documentation dependencies
+      if: inputs.include-docs == 'true'
+      shell: bash
+      run: mise exec -- pnpm --dir docsite install --frozen-lockfile

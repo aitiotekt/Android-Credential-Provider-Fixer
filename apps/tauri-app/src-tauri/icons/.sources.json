@@ -1,0 +1,11 @@
+{
+  "genericSource": {
+    "path": "assets/icons/app-icon.png",
+    "sha256": "13027d1e6a3824b7597882e669af84ef8ad703739c47aa108658207b3cb7b469"
+  },
+  "macosLegacySource": {
+    "path": "assets/icons/app-icon-macos-legacy.png",
+    "sha256": "94c77a0a1f360198220b4c9186acc18fc73149f6eb4e325740f1126921e02483"
+  },
+  "tauriCliVersion": "2.11.4"
+}

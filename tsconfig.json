@@ -1,0 +1,7 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "./apps/tauri-app" },
+		{ "path": "./tsconfig.scripts.json" }
+	]
+}

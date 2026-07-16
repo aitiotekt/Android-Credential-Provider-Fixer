@@ -1,0 +1,5 @@
+# Keep the documentation toolchain isolated from the application workspace.
+packages: []
+
+allowBuilds:
+  esbuild: true

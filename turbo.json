@@ -1,0 +1,22 @@
+{
+	"$schema": "https://turborepo.dev/schema.json",
+	"globalDependencies": ["pnpm-workspace.yaml", "tsconfig.base.json"],
+	"tasks": {
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**"]
+		},
+		"dev": {
+			"cache": false,
+			"persistent": true,
+			"interruptible": true
+		},
+		"test": {
+			"dependsOn": ["build"],
+			"outputs": []
+		},
+		"typecheck": {
+			"outputs": ["dist-tsc/**"]
+		}
+	}
+}

@@ -1,0 +1,19 @@
+[package]
+name = "acp-fixer-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Command-line interface for Android Credential Provider Fixer"
+
+[[bin]]
+name = "acp-fixer"
+path = "src/main.rs"
+
+[dependencies]
+acp-fixer-core.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+tokio.workspace = true
