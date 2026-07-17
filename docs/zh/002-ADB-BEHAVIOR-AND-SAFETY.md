@@ -1,8 +1,10 @@
 # ADB 行为与安全
 
-ADB 由用户自行安装和提供。应用未来会搜索 GUI 进程环境和文档列明的平台路径，通过 `adb version` 验证所选可执行文件，展示解析后的路径，并支持用户明确选择文件。应用永远不会下载或安装 Platform-Tools。
+ADB 由用户自行安装和提供。应用会搜索 GUI 进程环境和文档列明的平台路径，以独立 `version` 参数验证每个候选项，展示选择路径与实际解析路径，并通过 Rust 原生文件选择器支持明确选择。应用永远不会下载或安装 Platform-Tools。
 
-每条设备命令都必须使用 `adb -s SERIAL`。serial 只能来自当前 `adb devices -l` 结果，不能由前端自由输入。多设备时必须显式选择；unauthorized、offline、no-permission 和未发现设备是不同状态。当前 Android user 来自设备查询，并必须解析为非负整数。
+每条设备命令都使用 `adb -s SERIAL`。serial 只能来自当前 `adb devices -l` 结果，不能由前端自由输入。应用不会自动选择设备；unauthorized、offline、no-permission 和未发现设备是不同状态。诊断前后端会重新枚举。当前 Android user 来自 `am get-current-user`，并必须解析为非负整数。
+
+Phase 1 只读取厂商、型号、codename、Android release/API、前台 user、注册 Credential Provider service，以及 `credential_service`、`credential_service_primary` 和 `autofill_service`。它不读取 build fingerprint、日志、账号、保险库或 passkey 材料。Setting 会明确表示不存在、空值、有值或不可读取；未知 OEM 序列化保留原值并使报告标记为 incomplete。
 
 只有 package service enumeration 针对 `android.service.credentials.CredentialProviderService` 返回的 component 才能成为候选。注册 service 不等于已经证明支持 passkey、当前环境兼容或保险库已解锁。
 

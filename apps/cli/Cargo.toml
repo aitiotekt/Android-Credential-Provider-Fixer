@@ -16,4 +16,6 @@ path = "src/main.rs"
 acp-fixer-core.workspace = true
 async-trait.workspace = true
 clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true

@@ -1,8 +1,10 @@
 # ADB Behavior and Safety
 
-ADB is supplied and installed by the user. The application will search the GUI process environment and documented platform locations, validate the selected executable with `adb version`, display the resolved path, and support an explicit file selection. It will never download or install Platform-Tools.
+ADB is supplied and installed by the user. The application searches the GUI process environment and documented platform locations, validates each candidate with a separate `version` argument, displays the selected and resolved paths, and supports a Rust-native file selection. It never downloads or installs Platform-Tools.
 
-Every device operation must use `adb -s SERIAL`. The serial must come from the current `adb devices -l` result, never free-form frontend input. Multiple devices require an explicit choice; unauthorized, offline, no-permission, and missing-device states remain distinct. The active Android user comes from device queries and must be a non-negative integer.
+Every device operation uses `adb -s SERIAL`. The serial comes from the current `adb devices -l` result, never free-form frontend input. No device is selected automatically; unauthorized, offline, no-permission, and missing-device states remain distinct. The backend re-enumerates before diagnosis. The active Android user comes from `am get-current-user` and must be a non-negative integer.
+
+Phase 1 reads only manufacturer, model, codename, Android release/API, the foreground user, registered Credential Provider services, and `credential_service`, `credential_service_primary`, and `autofill_service`. It does not read build fingerprints, logs, accounts, vaults, or passkey material. A setting is represented as missing, empty, present, or unavailable; unfamiliar OEM serialization remains raw and makes the report incomplete.
 
 Provider components are candidates only when returned by package service enumeration for `android.service.credentials.CredentialProviderService`. Registration does not prove passkey capability, compatibility, or an unlocked vault.
 

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tauri::{AppHandle, Wry};
 use tauri_plugin_shell::{ShellExt, process::CommandEvent};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TauriShellCommandRunner {
     app: AppHandle<Wry>,
 }

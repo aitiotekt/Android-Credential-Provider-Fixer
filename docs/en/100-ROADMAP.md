@@ -1,19 +1,20 @@
 # Roadmap
 
-## Engineering baseline — current
+## Engineering baseline — complete
 
 - SolidJS 2 / Tauri 2 application shell and bilingual UI
 - Shared core contracts and bounded process-runner ports
 - Tauri Rust and Tokio CLI adapters
 - Documentation, VitePress, repository tooling, and cross-platform build CI
 
-## Phase 1 — read-only diagnosis
+## Phase 1 — read-only diagnosis — current
 
 - ADB discovery, path selection, and version validation
 - Device enumeration and explicit confirmation
 - Android compatibility and foreground-user inspection
 - Registered Credential Provider enumeration and current-state reads
 - Fake ADB fixtures, parser tests, and clearly marked Demo Mode
+- Equivalent GUI and CLI flows, JSON output, and guided bilingual onboarding
 
 Phase 1 contains no `settings put` or `settings delete`.
 

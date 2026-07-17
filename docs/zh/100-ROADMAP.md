@@ -1,19 +1,20 @@
 # 路线图
 
-## 工程基线 — 当前阶段
+## 工程基线 — 已完成
 
 - SolidJS 2 / Tauri 2 应用外壳与双语 UI
 - 共享 core 契约和有限输出的进程 runner port
 - Tauri Rust 与 Tokio CLI adapter
 - 文档、VitePress、仓库工具和跨平台构建 CI
 
-## Phase 1 — 只读诊断
+## Phase 1 — 只读诊断 — 当前阶段
 
 - ADB 发现、路径选择与版本验证
 - 设备枚举与明确确认
 - Android 兼容性和前台 user 检查
 - 已注册 Credential Provider 枚举与当前状态读取
 - Fake ADB fixture、解析测试和明确标记的 Demo Mode
+- 功能对等的 GUI/CLI、JSON 输出与双语引导式 onboarding
 
 Phase 1 不包含 `settings put` 或 `settings delete`。
 

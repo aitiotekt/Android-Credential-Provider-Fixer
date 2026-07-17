@@ -58,14 +58,16 @@ function rewriteLocalHref(href: string, sourcePath: string): string {
 		return `/${suffix}`;
 	}
 	const rootConvention = normalized.match(
-		/^(?:\.\.\/){2}(README|SECURITY|PRIVACY|CONTRIBUTING)\.md$/i,
+		/^(?:\.\.\/){2}(README|SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG)\.md$/i,
 	);
 	if (rootConvention) {
 		return rootConvention[1].toUpperCase() === "README"
 			? `/${suffix}`
 			: `/${rootConvention[1].toLowerCase()}${suffix}`;
 	}
-	const policy = normalized.match(/^(SECURITY|PRIVACY|CONTRIBUTING)\.md$/i);
+	const policy = normalized.match(
+		/^(SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG)\.md$/i,
+	);
 	if (policy) {
 		return `${root}/${policy[1].toLowerCase()}${suffix}`;
 	}
@@ -145,6 +147,7 @@ export default defineConfig({
 					{ text: "Docs", link: "/docs/000-OVERVIEW", activeMatch: "^/docs/" },
 					{ text: "Security", link: "/security" },
 					{ text: "Privacy", link: "/privacy" },
+					{ text: "Changelog", link: "/changelog" },
 				],
 				sidebar: { "/docs/": sidebar("/docs", "en") },
 			},
@@ -163,6 +166,7 @@ export default defineConfig({
 					},
 					{ text: "安全", link: "/zh/security" },
 					{ text: "隐私", link: "/zh/privacy" },
+					{ text: "变更日志", link: "/zh/changelog" },
 				],
 				sidebar: { "/zh/docs/": sidebar("/zh/docs", "zh") },
 			},

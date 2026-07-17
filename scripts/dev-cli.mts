@@ -33,7 +33,7 @@ type JavaScriptPackage = {
 };
 
 const repoRoot = resolve(import.meta.dirname, "..");
-const expectedVersion = "0.1.0-alpha.1";
+const expectedVersion = "0.1.0-alpha.2";
 const genericIconSource = "assets/icons/app-icon.png";
 const macosLegacyIconSource = "assets/icons/app-icon-macos-legacy.png";
 const generatedIconDirectory = "apps/tauri-app/src-tauri/icons";
@@ -44,6 +44,7 @@ const conventionDocumentNames = [
 	"SECURITY.md",
 	"PRIVACY.md",
 	"CONTRIBUTING.md",
+	"CHANGELOG.md",
 ] as const;
 const linkEntries: LinkEntry[] = [
 	...conventionDocumentNames.map((name) => ({
@@ -55,6 +56,7 @@ const linkEntries: LinkEntry[] = [
 	{ link: "docsite/security.md", target: "SECURITY.md", type: "file" },
 	{ link: "docsite/privacy.md", target: "PRIVACY.md", type: "file" },
 	{ link: "docsite/contributing.md", target: "CONTRIBUTING.md", type: "file" },
+	{ link: "docsite/changelog.md", target: "CHANGELOG.md", type: "file" },
 	{ link: "docsite/license.md", target: "LICENSE", type: "file" },
 	{ link: "docsite/docs", target: "docs/en", type: "dir" },
 	{ link: "docsite/zh/index.md", target: "docs/zh/README.md", type: "file" },
@@ -67,6 +69,11 @@ const linkEntries: LinkEntry[] = [
 	{
 		link: "docsite/zh/contributing.md",
 		target: "docs/zh/CONTRIBUTING.md",
+		type: "file",
+	},
+	{
+		link: "docsite/zh/changelog.md",
+		target: "docs/zh/CHANGELOG.md",
 		type: "file",
 	},
 	{ link: "docsite/zh/license.md", target: "LICENSE", type: "file" },
@@ -166,7 +173,9 @@ function checkDocs(): void {
 		}
 	}
 	const rootLanguageVariants = readdirSync(repoRoot).filter((name) =>
-		/^(?:README|SECURITY|PRIVACY|CONTRIBUTING)\.[^.]+\.md$/i.test(name),
+		/^(?:README|SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG)\.[^.]+\.md$/i.test(
+			name,
+		),
 	);
 	if (rootLanguageVariants.length > 0) {
 		throw new Error(
@@ -289,27 +298,51 @@ function withGeneratedIconSets(
 	}
 }
 
+function fileSha256(relativePath: string): string {
+	return createHash("sha256")
+		.update(readFileSync(resolve(repoRoot, relativePath)))
+		.digest("hex");
+}
+
+function generatedIconHashes(): Record<string, string> {
+	const hashes: Record<string, string> = {};
+	for (const relativePath of relativeFilesUnder(
+		resolve(repoRoot, generatedIconDirectory),
+	)) {
+		if (relativePath === ".sources.json") {
+			continue;
+		}
+		hashes[relativePath] = fileSha256(
+			`${generatedIconDirectory}/${relativePath}`,
+		);
+	}
+	return hashes;
+}
+
 function iconManifestContents(): string {
 	const appPackage = readJson<JavaScriptPackage>("apps/tauri-app/package.json");
 	const cliVersion = appPackage.devDependencies?.["@tauri-apps/cli"];
 	if (!cliVersion) {
 		throw new Error("@tauri-apps/cli version is missing from the app package.");
 	}
-	const sha256 = (relativePath: string) =>
-		createHash("sha256")
-			.update(readFileSync(resolve(repoRoot, relativePath)))
-			.digest("hex");
+	// Hash checked-in outputs instead of regenerating during check: `tauri icon`
+	// PNG bytes are not stable across Linux/macOS hosts.
 	return `${JSON.stringify(
 		{
 			genericSource: {
 				path: genericIconSource,
-				sha256: sha256(genericIconSource),
+				sha256: fileSha256(genericIconSource),
 			},
 			macosLegacySource: {
 				path: macosLegacyIconSource,
-				sha256: sha256(macosLegacyIconSource),
+				sha256: fileSha256(macosLegacyIconSource),
+			},
+			frontendIcon: {
+				path: frontendIcon,
+				sha256: fileSha256(frontendIcon),
 			},
 			tauriCliVersion: cliVersion,
+			generated: generatedIconHashes(),
 		},
 		null,
 		2,
@@ -343,46 +376,25 @@ function syncIcons(): void {
 	console.log("Synchronized generic icons and the macOS legacy ICNS asset.");
 }
 
-function assertFilesEqual(expected: string, actual: string): void {
-	if (
-		!existsSync(actual) ||
-		!readFileSync(expected).equals(readFileSync(actual))
-	) {
-		throw new Error(
-			`Generated icon is stale: ${relative(repoRoot, actual)}. Run just sync-icons.`,
-		);
-	}
-}
-
 function checkIcons(): void {
 	assertIconMaster(genericIconSource, false);
 	assertIconMaster(macosLegacyIconSource, true);
-	const destination = resolve(repoRoot, generatedIconDirectory);
-
-	withGeneratedIconSets("ignore", (genericDirectory, macosLegacyDirectory) => {
-		for (const relativePath of relativeFilesUnder(genericDirectory)) {
-			if (relativePath !== "icon.icns") {
-				assertFilesEqual(
-					resolve(genericDirectory, relativePath),
-					resolve(destination, relativePath),
-				);
-			}
-		}
-		const generatedIcns = readFileSync(
-			resolve(macosLegacyDirectory, "icon.icns"),
-		);
-		const checkedInIcns = readFileSync(resolve(destination, "icon.icns"));
-		if (
-			generatedIcns.subarray(0, 4).toString("ascii") !== "icns" ||
-			checkedInIcns.subarray(0, 4).toString("ascii") !== "icns"
-		) {
-			throw new Error("The generated macOS icon is not a valid ICNS file.");
-		}
-	});
-	assertFilesEqual(
-		resolve(repoRoot, genericIconSource),
-		resolve(repoRoot, frontendIcon),
+	const checkedInIcns = readFileSync(
+		resolve(repoRoot, `${generatedIconDirectory}/icon.icns`),
 	);
+	if (checkedInIcns.subarray(0, 4).toString("ascii") !== "icns") {
+		throw new Error("The generated macOS icon is not a valid ICNS file.");
+	}
+	if (
+		!existsSync(resolve(repoRoot, frontendIcon)) ||
+		!readFileSync(resolve(repoRoot, genericIconSource)).equals(
+			readFileSync(resolve(repoRoot, frontendIcon)),
+		)
+	) {
+		throw new Error(
+			`Generated icon is stale: ${frontendIcon}. Run just sync-icons.`,
+		);
+	}
 	if (
 		readFileSync(resolve(repoRoot, iconManifest), "utf8") !==
 		iconManifestContents()
@@ -429,9 +441,17 @@ function checkSecurity(): void {
 		...appPackage.dependencies,
 		...appPackage.devDependencies,
 	};
-	if ("@tauri-apps/plugin-shell" in dependencies) {
+	const forbiddenFrontendPlugins = [
+		"@tauri-apps/plugin-shell",
+		"@tauri-apps/plugin-dialog",
+		"@tauri-apps/plugin-fs",
+	];
+	const installedForbiddenPlugins = forbiddenFrontendPlugins.filter(
+		(name) => name in dependencies,
+	);
+	if (installedForbiddenPlugins.length > 0) {
 		throw new Error(
-			"The frontend must not depend on @tauri-apps/plugin-shell.",
+			`The frontend must not depend on privileged Tauri plugins: ${installedForbiddenPlugins.join(", ")}.`,
 		);
 	}
 
@@ -462,9 +482,21 @@ function checkSecurity(): void {
 			),
 		].map((match) => match[1]);
 	});
-	if (JSON.stringify(commandNames) !== JSON.stringify(["get_app_info"])) {
+	const expectedCommands = [
+		"choose_adb_executable",
+		"discover_adb",
+		"get_app_info",
+		"get_demo_fixture",
+		"get_startup_state",
+		"inspect_device",
+		"list_devices",
+		"select_adb_candidate",
+		"set_onboarding_status",
+	].sort();
+	commandNames.sort();
+	if (JSON.stringify(commandNames) !== JSON.stringify(expectedCommands)) {
 		throw new Error(
-			`Expected get_app_info to be the only Tauri command, found: ${commandNames.join(", ") || "none"}`,
+			`Unexpected Tauri command surface: ${commandNames.join(", ") || "none"}`,
 		);
 	}
 
@@ -479,7 +511,7 @@ function checkSecurity(): void {
 		].map((match) => match[1]);
 	});
 	const unexpectedCommands = invokedCommands.filter(
-		(command) => command !== "get_app_info",
+		(command) => !expectedCommands.includes(command),
 	);
 	if (unexpectedCommands.length > 0) {
 		throw new Error(
@@ -490,10 +522,13 @@ function checkSecurity(): void {
 	const executableSources = [
 		...tauriSources,
 		...filesUnder("apps/cli/src", new Set([".rs"])),
+		...filesUnder("packages/core/src", new Set([".rs"])),
 	];
 	const forbiddenPatterns = [
 		/\.args?\(\s*["'](?:-c|\/[cC]|-Command)["']\s*\)/,
 		/settings\s+(?:put|delete)/,
+		/["']settings["'][\s\S]{0,300}["'](?:put|delete)["']/,
+		/["'](?:kill-server|start-server|force-stop)["']/,
 	];
 	for (const path of executableSources) {
 		const source = readFileSync(resolve(repoRoot, path), "utf8");

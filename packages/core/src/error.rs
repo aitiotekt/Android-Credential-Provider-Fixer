@@ -11,6 +11,21 @@ pub enum ErrorCode {
     CommandOutputReadFailed,
     CommandWaitFailed,
     CommandTerminateFailed,
+    AdbNotFound,
+    AdbNotExecutable,
+    AdbVersionFailed,
+    AdbSelectionStale,
+    DeviceSelectionRequired,
+    DeviceUnauthorized,
+    DeviceOffline,
+    DeviceNoPermissions,
+    DeviceChanged,
+    UserQueryFailed,
+    ProviderQueryFailed,
+    SettingReadFailed,
+    OutputInvalid,
+    PreferencesReadFailed,
+    PreferencesWriteFailed,
 }
 
 impl ErrorCode {
@@ -24,6 +39,21 @@ impl ErrorCode {
             Self::CommandOutputReadFailed => "COMMAND_OUTPUT_READ_FAILED",
             Self::CommandWaitFailed => "COMMAND_WAIT_FAILED",
             Self::CommandTerminateFailed => "COMMAND_TERMINATE_FAILED",
+            Self::AdbNotFound => "ADB_NOT_FOUND",
+            Self::AdbNotExecutable => "ADB_NOT_EXECUTABLE",
+            Self::AdbVersionFailed => "ADB_VERSION_FAILED",
+            Self::AdbSelectionStale => "ADB_SELECTION_STALE",
+            Self::DeviceSelectionRequired => "DEVICE_SELECTION_REQUIRED",
+            Self::DeviceUnauthorized => "DEVICE_UNAUTHORIZED",
+            Self::DeviceOffline => "DEVICE_OFFLINE",
+            Self::DeviceNoPermissions => "DEVICE_NO_PERMISSIONS",
+            Self::DeviceChanged => "DEVICE_CHANGED",
+            Self::UserQueryFailed => "USER_QUERY_FAILED",
+            Self::ProviderQueryFailed => "PROVIDER_QUERY_FAILED",
+            Self::SettingReadFailed => "SETTING_READ_FAILED",
+            Self::OutputInvalid => "OUTPUT_INVALID",
+            Self::PreferencesReadFailed => "PREFERENCES_READ_FAILED",
+            Self::PreferencesWriteFailed => "PREFERENCES_WRITE_FAILED",
         }
     }
 }
@@ -70,6 +100,15 @@ pub struct ErrorEnvelope {
 
 impl From<&CommandError> for ErrorEnvelope {
     fn from(error: &CommandError) -> Self {
+        Self {
+            code: error.code().as_str().to_owned(),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<&crate::DiagnosticError> for ErrorEnvelope {
+    fn from(error: &crate::DiagnosticError) -> Self {
         Self {
             code: error.code().as_str().to_owned(),
             message: error.to_string(),

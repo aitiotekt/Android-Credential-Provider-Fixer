@@ -23,6 +23,8 @@ _Single source of truth for agent behavior and project engineering rules._
 - Every Android device command must eventually use an explicitly selected serial and Android user.
 - Do not modify `autofill_service`, passkeys, vault data, or unrelated Android settings.
 - Phase 1 is read-only. Do not add `settings put` or `settings delete` before the planned snapshot, confirmation, verification, and restore design is implemented.
+- Phase 1 device reads are limited to ADB version/device enumeration, the documented device properties, foreground user, Credential Provider service query, and the three allowlisted settings.
+- Demo Mode uses bundled DTOs and must never fall through to real ADB discovery, enumeration, or inspection.
 - Tauri capabilities must not grant shell execute or spawn access to the frontend.
 - Do not connect to or modify a real Android device unless the user explicitly requests it. Tests use mocks or fake executables.
 - Runtime behavior is local-only by default: no analytics, crash uploads, or silent downloads.
@@ -46,9 +48,9 @@ _Single source of truth for agent behavior and project engineering rules._
 
 ## Documentation
 
-- Root-level convention documents are English source files with suffixless names: `README.md`, `SECURITY.md`, `PRIVACY.md`, and `CONTRIBUTING.md`. Keep them at the repository root for maximum renderer and platform compatibility.
+- Root-level convention documents are English source files with suffixless names: `README.md`, `SECURITY.md`, `PRIVACY.md`, `CONTRIBUTING.md`, and `CHANGELOG.md`. Keep them at the repository root for maximum renderer and platform compatibility.
 - Do not add language-suffixed convention files such as `README.en.md` or `README.zh.md` at the repository root.
-- `docs/en/{README,SECURITY,PRIVACY,CONTRIBUTING}.md` are managed relative symlinks to the English root sources. Other languages keep regular source files at the same names under `docs/{language}/`.
+- `docs/en/{README,SECURITY,PRIVACY,CONTRIBUTING,CHANGELOG}.md` are managed relative symlinks to the English root sources. Other languages keep regular source files at the same names under `docs/{language}/`.
 - Documentation filenames and long-form docs are symmetric across language directories, with language links between counterparts.
 - `docsite` consumes repository docs through managed relative symlinks. Use `just sync-docs` and `just check-docs`.
 - Describe current behavior as current behavior and future work as roadmap. Historical changes belong in `CHANGELOG.md` when one exists.
