@@ -4,19 +4,21 @@ version = 4
 
 [[package]]
 name = "acp-fixer-cli"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "acp-fixer-core",
+ "acp-fixer-storage",
  "async-trait",
  "clap",
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "acp-fixer-core"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "async-trait",
  "serde",
@@ -25,10 +27,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "acp-fixer-tauri"
-version = "0.1.0-alpha.2"
+name = "acp-fixer-storage"
+version = "0.1.0-alpha.3"
 dependencies = [
  "acp-fixer-core",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "acp-fixer-tauri"
+version = "0.1.0-alpha.3"
+dependencies = [
+ "acp-fixer-core",
+ "acp-fixer-storage",
  "async-trait",
  "serde",
  "serde_json",
@@ -37,6 +49,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-shell",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

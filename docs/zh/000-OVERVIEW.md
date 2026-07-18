@@ -6,7 +6,7 @@ Android Credential Provider Fixer 处理 Android 14 及以上系统中的一种�
 
 ## 当前版本
 
-`0.1.0-alpha.2` 已在 GUI 与 CLI 中实现 Phase 1 只读诊断：验证 ADB、枚举设备状态、检查 Android/API 与前台 user、枚举注册 provider、读取 enabled/primary/Autofill 状态并给出保守结论。引导式 Demo 与真实 ADB 隔离；setting 写入、快照、恢复和报告导出尚未实现。
+`0.1.0-alpha.3` 保留 Phase 1 诊断，并在 GUI 与 CLI 中新增明确 Provider 选择、dry-run 预览、五分钟一次性 plan、原子本地快照、验证式 Exclusive Provider Pin、自动恢复和受保护 Restore。引导 Demo 会模拟完整流程但不调用真实 ADB。Provider refresh、force-stop、WebAuthn 启动、报告导出和物理设备写入尚未实现。
 
 ## 产品边界
 

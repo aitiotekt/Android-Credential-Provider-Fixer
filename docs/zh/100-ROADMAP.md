@@ -7,7 +7,7 @@
 - Tauri Rust 与 Tokio CLI adapter
 - 文档、VitePress、仓库工具和跨平台构建 CI
 
-## Phase 1 — 只读诊断 — 当前阶段
+## Phase 1 — 只读诊断 — 已完成
 
 - ADB 发现、路径选择与版本验证
 - 设备枚举与明确确认
@@ -18,17 +18,19 @@
 
 Phase 1 不包含 `settings put` 或 `settings delete`。
 
-## Phase 2 — plan 与快照
+## Phase 2 — plan、快照与有限恢复 — 当前阶段
 
 - Before/after diff 和短期一次性 plan ID
 - 与设备和 user 绑定的版本化原子快照
 - 状态变化检测与恢复预览
-
-## Phase 3 — 验证写入与恢复
-
 - Exclusive Provider Pin
 - 每次写入后的回读验证与自动恢复
-- 手动 Restore、所选 provider 刷新和固定 WebAuthn 测试 URL
+- 受保护的手动 Restore
+
+## Phase 3 — Provider 验证辅助
+
+- 不暴露任意 package 命令的所选 Provider refresh
+- 固定 WebAuthn 测试 URL
 
 ## Phase 4 — 报告与发行
 

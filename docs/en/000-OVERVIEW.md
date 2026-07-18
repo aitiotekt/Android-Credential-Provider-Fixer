@@ -6,7 +6,7 @@ The project is intentionally local, transparent, and narrow. It discovers ADB su
 
 ## Current release
 
-`0.1.0-alpha.2` implements Phase 1 read-only diagnosis in both the GUI and CLI. It validates ADB, enumerates device states, checks Android/API compatibility and the foreground user, enumerates registered providers, reads enabled/primary/Autofill state, and returns conservative findings. The guided Demo is isolated from live ADB. Setting writes, snapshots, restore, and report export are not implemented.
+`0.1.0-alpha.3` retains Phase 1 diagnosis and adds explicit Provider selection, dry-run previews, five-minute one-use plans, atomic local snapshots, verified Exclusive Provider Pin, automatic recovery, and guarded Restore in both GUI and CLI. The guided Demo simulates the complete flow without live ADB. Provider refresh, force-stop, WebAuthn launch, report export, and physical-device writes are not implemented.
 
 ## Product boundaries
 

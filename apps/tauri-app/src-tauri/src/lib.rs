@@ -27,7 +27,16 @@ pub fn run() {
             backend::choose_adb_executable,
             backend::list_devices,
             backend::inspect_device,
+            backend::prepare_pin,
+            backend::create_pin_plan,
+            backend::execute_pin_plan,
+            backend::list_snapshots,
+            backend::prepare_restore,
+            backend::create_restore_plan,
+            backend::execute_restore_plan,
+            backend::discard_change_plan,
             backend::set_onboarding_status,
+            backend::set_theme_preference,
             backend::get_demo_fixture,
         ])
         .run(tauri::generate_context!())

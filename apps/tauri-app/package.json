@@ -1,6 +1,6 @@
 {
 	"name": "@aitiotekt/acp-fixer-tauri-app",
-	"version": "0.1.0-alpha.2",
+	"version": "0.1.0-alpha.3",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -18,8 +18,10 @@
 		"solid-js": "2.0.0-rc.4"
 	},
 	"devDependencies": {
+		"@tailwindcss/vite": "4.3.3",
 		"@tauri-apps/cli": "2.11.4",
 		"jsdom": "30.0.1",
+		"tailwindcss": "4.3.3",
 		"typescript": "7.0.2",
 		"vite": "8.2.2",
 		"vite-plugin-solid": "3.0.0-next.27",

@@ -5,11 +5,16 @@ use std::{
 };
 
 use acp_fixer_core::{
-    AdbCandidate, AdbCandidateSource, AdbDiscoveryContext, AdbValidationFailure, DemoFixture,
-    DeviceList, DeviceSummary, DiagnosisReport, DiagnosticError, ErrorCode, ErrorEnvelope,
-    ValidatedAdb, demo_fixture, diagnose_device, discover_adb as discover_adb_core,
-    list_devices as list_devices_core, validate_adb,
+    AdbCandidate, AdbCandidateSource, AdbDiscoveryContext, AdbValidationFailure, ChangeError,
+    ChangeKind, ChangeOutcome, ChangePlan, ChangePreview, ComponentName, DemoFixture, DeviceList,
+    DeviceSummary, DiagnosisReport, DiagnosticError, ErrorCode, ErrorEnvelope, ProviderService,
+    SnapshotInventory, SnapshotRecord, SnapshotStore, ValidatedAdb, create_change_plan,
+    demo_fixture, diagnose_device, discover_adb as discover_adb_core, execute_change,
+    expire_snapshot, list_devices as list_devices_core, mark_source_snapshot_restored,
+    prepare_pin as prepare_pin_core, prepare_restore as prepare_restore_core,
+    update_snapshot_from_outcome, validate_adb,
 };
+use acp_fixer_storage::{FileSnapshotStore, default_app_data_dir};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State, Wry};
 use tauri_plugin_dialog::DialogExt;
@@ -17,13 +22,22 @@ use tokio::sync::Mutex;
 
 use crate::adapters::TauriShellCommandRunner;
 
-const ONBOARDING_VERSION: u32 = 1;
+const ONBOARDING_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum OnboardingStatus {
     Completed,
     Skipped,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemePreference {
+    #[default]
+    System,
+    Light,
+    Dark,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -33,6 +47,7 @@ struct Preferences {
     adb_path: Option<PathBuf>,
     onboarding_version: Option<u32>,
     onboarding_status: Option<OnboardingStatus>,
+    theme_preference: ThemePreference,
 }
 
 impl Preferences {
@@ -48,6 +63,7 @@ pub struct StartupState {
     pub schema_version: u32,
     pub onboarding_version: u32,
     pub onboarding_status: Option<OnboardingStatus>,
+    pub theme_preference: ThemePreference,
     pub selected_adb: Option<ValidatedAdb>,
     pub preference_warning: Option<ErrorEnvelope>,
 }
@@ -84,6 +100,28 @@ pub struct DeviceListView {
     pub devices: Vec<DeviceChoice>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderChoice {
+    pub provider_id: String,
+    #[serde(flatten)]
+    pub provider: ProviderService,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InspectionView {
+    pub schema_version: u32,
+    pub report: DiagnosisReport,
+    pub providers: Vec<ProviderChoice>,
+}
+
+#[derive(Clone, Debug)]
+struct PendingPlan {
+    plan: ChangePlan,
+    snapshot: SnapshotRecord,
+}
+
 #[derive(Debug)]
 struct SessionState {
     preferences: Preferences,
@@ -93,12 +131,17 @@ struct SessionState {
     candidates: HashMap<String, ValidatedAdb>,
     device_generation: u64,
     devices: HashMap<String, String>,
+    provider_generation: u64,
+    providers: HashMap<String, (String, ComponentName)>,
+    previews: HashMap<String, ChangePreview>,
+    plans: HashMap<String, PendingPlan>,
 }
 
 #[derive(Debug)]
 pub struct BackendState {
     runner: TauriShellCommandRunner,
     preferences_path: PathBuf,
+    snapshots: FileSnapshotStore,
     session: Mutex<SessionState>,
 }
 
@@ -113,6 +156,7 @@ impl BackendState {
         Self {
             runner: TauriShellCommandRunner::new(app.clone()),
             preferences_path,
+            snapshots: FileSnapshotStore::new(default_app_data_dir().join("snapshots")),
             session: Mutex::new(SessionState {
                 preferences,
                 preference_warning,
@@ -121,6 +165,10 @@ impl BackendState {
                 candidates: HashMap::new(),
                 device_generation: 0,
                 devices: HashMap::new(),
+                provider_generation: 0,
+                providers: HashMap::new(),
+                previews: HashMap::new(),
+                plans: HashMap::new(),
             }),
         }
     }
@@ -165,6 +213,10 @@ pub async fn discover_adb(
     let mut session = state.session.lock().await;
     session.candidate_generation = session.candidate_generation.wrapping_add(1);
     session.candidates.clear();
+    session.devices.clear();
+    session.providers.clear();
+    session.previews.clear();
+    session.plans.clear();
     let generation = session.candidate_generation;
     let candidates = result
         .candidates
@@ -240,7 +292,7 @@ pub async fn list_devices(state: State<'_, BackendState>) -> Result<DeviceListVi
 pub async fn inspect_device(
     device_id: String,
     state: State<'_, BackendState>,
-) -> Result<DiagnosisReport, ErrorEnvelope> {
+) -> Result<InspectionView, ErrorEnvelope> {
     let (adb, serial) = {
         let session = state.session.lock().await;
         let adb = session
@@ -254,8 +306,174 @@ pub async fn inspect_device(
             .ok_or_else(|| ErrorEnvelope::from(&DiagnosticError::DeviceSelectionRequired))?;
         (adb, serial)
     };
-    diagnose_device(&state.runner, &adb, &serial)
+    let report = diagnose_device(&state.runner, &adb, &serial)
         .await
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    let mut session = state.session.lock().await;
+    session.provider_generation = session.provider_generation.wrapping_add(1);
+    session.providers.clear();
+    session.previews.clear();
+    session.plans.clear();
+    let generation = session.provider_generation;
+    let providers = report
+        .providers
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(index, provider)| {
+            let provider_id = format!("provider-{generation}-{index}");
+            session.providers.insert(
+                provider_id.clone(),
+                (device_id.clone(), provider.component.clone()),
+            );
+            ProviderChoice {
+                provider_id,
+                provider,
+            }
+        })
+        .collect();
+    Ok(InspectionView {
+        schema_version: 1,
+        report,
+        providers,
+    })
+}
+
+#[tauri::command]
+pub async fn prepare_pin(
+    device_id: String,
+    provider_id: String,
+    allow_unparsed: bool,
+    state: State<'_, BackendState>,
+) -> Result<ChangePreview, ErrorEnvelope> {
+    let (adb, serial, provider) = {
+        let session = state.session.lock().await;
+        let adb = session
+            .selected_adb
+            .clone()
+            .ok_or_else(|| ErrorEnvelope::from(&DiagnosticError::AdbSelectionStale))?;
+        let serial = session
+            .devices
+            .get(&device_id)
+            .cloned()
+            .ok_or_else(|| ErrorEnvelope::from(&DiagnosticError::DeviceSelectionRequired))?;
+        let (provider_device_id, provider) = session
+            .providers
+            .get(&provider_id)
+            .cloned()
+            .ok_or_else(|| ErrorEnvelope::from(&ChangeError::TargetNotRegistered))?;
+        if provider_device_id != device_id {
+            return Err(ErrorEnvelope::from(&ChangeError::TargetNotRegistered));
+        }
+        (adb, serial, provider)
+    };
+    let report = diagnose_device(&state.runner, &adb, &serial)
+        .await
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    let preview = prepare_pin_core(&report, &provider, allow_unparsed, new_id(), now_unix_ms())
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    state
+        .session
+        .lock()
+        .await
+        .previews
+        .insert(preview.preview_id.clone(), preview.clone());
+    Ok(preview)
+}
+
+#[tauri::command]
+pub async fn create_pin_plan(
+    preview_id: String,
+    state: State<'_, BackendState>,
+) -> Result<ChangePlan, ErrorEnvelope> {
+    create_plan(&state, preview_id, ChangeKind::Pin).await
+}
+
+#[tauri::command]
+pub async fn execute_pin_plan(
+    plan_id: String,
+    state: State<'_, BackendState>,
+) -> Result<ChangeOutcome, ErrorEnvelope> {
+    execute_plan(&state, plan_id, ChangeKind::Pin).await
+}
+
+#[tauri::command]
+pub fn list_snapshots(state: State<'_, BackendState>) -> Result<SnapshotInventory, ErrorEnvelope> {
+    state
+        .snapshots
+        .list()
+        .map_err(|error| ErrorEnvelope::from(&error))
+}
+
+#[tauri::command]
+pub async fn prepare_restore(
+    device_id: String,
+    snapshot_id: String,
+    state: State<'_, BackendState>,
+) -> Result<ChangePreview, ErrorEnvelope> {
+    let (adb, serial) = {
+        let session = state.session.lock().await;
+        let adb = session
+            .selected_adb
+            .clone()
+            .ok_or_else(|| ErrorEnvelope::from(&DiagnosticError::AdbSelectionStale))?;
+        let serial = session
+            .devices
+            .get(&device_id)
+            .cloned()
+            .ok_or_else(|| ErrorEnvelope::from(&DiagnosticError::DeviceSelectionRequired))?;
+        (adb, serial)
+    };
+    let snapshot = state
+        .snapshots
+        .load(&snapshot_id)
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    let report = diagnose_device(&state.runner, &adb, &serial)
+        .await
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    let preview = prepare_restore_core(&report, &snapshot, new_id(), now_unix_ms())
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    state
+        .session
+        .lock()
+        .await
+        .previews
+        .insert(preview.preview_id.clone(), preview.clone());
+    Ok(preview)
+}
+
+#[tauri::command]
+pub async fn create_restore_plan(
+    preview_id: String,
+    state: State<'_, BackendState>,
+) -> Result<ChangePlan, ErrorEnvelope> {
+    create_plan(&state, preview_id, ChangeKind::Restore).await
+}
+
+#[tauri::command]
+pub async fn execute_restore_plan(
+    plan_id: String,
+    state: State<'_, BackendState>,
+) -> Result<ChangeOutcome, ErrorEnvelope> {
+    execute_plan(&state, plan_id, ChangeKind::Restore).await
+}
+
+#[tauri::command]
+pub async fn discard_change_plan(
+    plan_id: String,
+    state: State<'_, BackendState>,
+) -> Result<(), ErrorEnvelope> {
+    let mut pending = state
+        .session
+        .lock()
+        .await
+        .plans
+        .remove(&plan_id)
+        .ok_or_else(|| ErrorEnvelope::from(&ChangeError::PlanUnavailable))?;
+    expire_snapshot(&mut pending.snapshot, now_unix_ms());
+    state
+        .snapshots
+        .save(&pending.snapshot)
         .map_err(|error| ErrorEnvelope::from(&error))
 }
 
@@ -272,8 +490,104 @@ pub async fn set_onboarding_status(
 }
 
 #[tauri::command]
+pub async fn set_theme_preference(
+    preference: ThemePreference,
+    state: State<'_, BackendState>,
+) -> Result<StartupState, ErrorEnvelope> {
+    let mut session = state.session.lock().await;
+    let mut next = session.preferences.clone();
+    next.theme_preference = preference;
+    save_preferences(&state.preferences_path, &next)?;
+    session.preferences = next;
+    Ok(startup_state(&session))
+}
+
+#[tauri::command]
 pub fn get_demo_fixture() -> DemoFixture {
     demo_fixture()
+}
+
+async fn create_plan(
+    state: &State<'_, BackendState>,
+    preview_id: String,
+    expected_kind: ChangeKind,
+) -> Result<ChangePlan, ErrorEnvelope> {
+    let preview = state
+        .session
+        .lock()
+        .await
+        .previews
+        .remove(&preview_id)
+        .ok_or_else(|| ErrorEnvelope::from(&ChangeError::PlanUnavailable))?;
+    if preview.kind != expected_kind {
+        return Err(ErrorEnvelope::from(&ChangeError::PlanUnavailable));
+    }
+    let (plan, snapshot) = create_change_plan(&preview, new_id(), new_id(), now_unix_ms())
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    state
+        .snapshots
+        .save(&snapshot)
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    state.session.lock().await.plans.insert(
+        plan.plan_id.clone(),
+        PendingPlan {
+            plan: plan.clone(),
+            snapshot,
+        },
+    );
+    Ok(plan)
+}
+
+async fn execute_plan(
+    state: &State<'_, BackendState>,
+    plan_id: String,
+    expected_kind: ChangeKind,
+) -> Result<ChangeOutcome, ErrorEnvelope> {
+    let mut pending = state
+        .session
+        .lock()
+        .await
+        .plans
+        .remove(&plan_id)
+        .ok_or_else(|| ErrorEnvelope::from(&ChangeError::PlanUnavailable))?;
+    if pending.plan.kind != expected_kind {
+        return Err(ErrorEnvelope::from(&ChangeError::PlanUnavailable));
+    }
+    let now = now_unix_ms();
+    if now > pending.plan.expires_at_unix_ms {
+        expire_snapshot(&mut pending.snapshot, now);
+        state
+            .snapshots
+            .save(&pending.snapshot)
+            .map_err(|error| ErrorEnvelope::from(&error))?;
+        return Err(ErrorEnvelope::from(&ChangeError::PlanExpired));
+    }
+    let outcome = execute_change(&state.runner, &pending.plan, now)
+        .await
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    update_snapshot_from_outcome(&mut pending.snapshot, &outcome);
+    state
+        .snapshots
+        .save(&pending.snapshot)
+        .map_err(|error| ErrorEnvelope::from(&error))?;
+    if outcome.status == acp_fixer_core::ChangeOutcomeStatus::Restored {
+        let source_id = pending
+            .plan
+            .source_snapshot_id
+            .as_deref()
+            .ok_or_else(|| ErrorEnvelope::from(&ChangeError::PlanUnavailable))?;
+        let mut source = state
+            .snapshots
+            .load(source_id)
+            .map_err(|error| ErrorEnvelope::from(&error))?;
+        mark_source_snapshot_restored(&mut source, &outcome)
+            .map_err(|error| ErrorEnvelope::from(&error))?;
+        state
+            .snapshots
+            .save(&source)
+            .map_err(|error| ErrorEnvelope::from(&error))?;
+    }
+    Ok(outcome)
 }
 
 async fn selected_adb(state: &State<'_, BackendState>) -> Result<ValidatedAdb, ErrorEnvelope> {
@@ -295,6 +609,9 @@ async fn select_and_persist(
     save_preferences(&state.preferences_path, &session.preferences)?;
     session.selected_adb = Some(adb.clone());
     session.devices.clear();
+    session.providers.clear();
+    session.previews.clear();
+    session.plans.clear();
     Ok(adb)
 }
 
@@ -302,6 +619,9 @@ async fn cache_devices(state: &State<'_, BackendState>, list: DeviceList) -> Dev
     let mut session = state.session.lock().await;
     session.device_generation = session.device_generation.wrapping_add(1);
     session.devices.clear();
+    session.providers.clear();
+    session.previews.clear();
+    session.plans.clear();
     let generation = session.device_generation;
     let devices = list
         .devices
@@ -329,6 +649,7 @@ fn startup_state(session: &SessionState) -> StartupState {
         onboarding_status: (session.preferences.onboarding_version == Some(ONBOARDING_VERSION))
             .then_some(session.preferences.onboarding_status)
             .flatten(),
+        theme_preference: session.preferences.theme_preference,
         selected_adb: session.selected_adb.clone(),
         preference_warning: session.preference_warning.clone(),
     }
@@ -381,6 +702,21 @@ fn preferences_write_error(error: impl std::fmt::Display) -> ErrorEnvelope {
     }
 }
 
+fn new_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+fn now_unix_ms() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -415,12 +751,31 @@ mod tests {
             adb_path: Some(PathBuf::from("/path with spaces/adb")),
             onboarding_version: Some(1),
             onboarding_status: Some(OnboardingStatus::Skipped),
+            theme_preference: ThemePreference::Dark,
         };
 
         save_preferences(&path, &preferences).unwrap();
         let (actual, warning) = load_preferences(&path);
 
         assert_eq!(actual, preferences);
+        assert!(warning.is_none());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn preferences_without_theme_migrate_to_system() {
+        let directory = temporary_directory();
+        let path = directory.join("preferences.json");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            &path,
+            br#"{"schemaVersion":1,"onboardingVersion":2,"onboardingStatus":"skipped"}"#,
+        )
+        .unwrap();
+
+        let (preferences, warning) = load_preferences(&path);
+
+        assert_eq!(preferences.theme_preference, ThemePreference::System);
         assert!(warning.is_none());
         fs::remove_dir_all(directory).unwrap();
     }

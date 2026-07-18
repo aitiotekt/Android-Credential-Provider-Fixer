@@ -14,6 +14,7 @@ export type AppInfo = {
 };
 
 export type OnboardingStatus = "completed" | "skipped";
+export type ThemePreference = "system" | "light" | "dark";
 
 export type ValidatedAdb = {
 	path: string;
@@ -25,6 +26,7 @@ export type StartupState = {
 	schemaVersion: number;
 	onboardingVersion: number;
 	onboardingStatus: OnboardingStatus | null;
+	themePreference: ThemePreference;
 	selectedAdb: ValidatedAdb | null;
 	preferenceWarning: ErrorEnvelope | null;
 };
@@ -123,6 +125,111 @@ export type DiagnosisReport = {
 	}>;
 };
 
+export type ProviderChoice = DiagnosisReport["providers"][number] & {
+	providerId: string;
+};
+
+export type InspectionView = {
+	schemaVersion: number;
+	report: DiagnosisReport;
+	providers: ProviderChoice[];
+};
+
+export type ManagedSettingValue =
+	| { kind: "missing" }
+	| { kind: "empty" }
+	| { kind: "value"; raw: string; parseable: boolean };
+
+export type ManagedCredentialState = {
+	enabled: ManagedSettingValue;
+	primary: ManagedSettingValue;
+};
+
+export type ChangeKind = "pin" | "restore";
+export type ChangeBlocker =
+	| "ANDROID_VERSION_UNSUPPORTED"
+	| "DIAGNOSIS_UNAVAILABLE"
+	| "TARGET_NOT_REGISTERED"
+	| "UNPARSED_CONFIRMATION_REQUIRED"
+	| "STATE_CHANGED"
+	| "SNAPSHOT_NOT_RESTORABLE"
+	| "NO_CHANGE_REQUIRED";
+export type ChangePreview = {
+	schemaVersion: number;
+	previewId: string;
+	sourceSnapshotId: string | null;
+	kind: ChangeKind;
+	createdAtUnixMs: number;
+	adb: ValidatedAdb;
+	device: DiagnosisReport["device"];
+	androidUser: NonNullable<DiagnosisReport["androidUser"]>;
+	target: ComponentName;
+	registeredProviders: string[];
+	before: ManagedCredentialState;
+	after: ManagedCredentialState;
+	requiresUnparsedConfirmation: boolean;
+	allowUnparsed: boolean;
+	blockers: ChangeBlocker[];
+};
+
+export type ChangePlan = {
+	schemaVersion: number;
+	planId: string;
+	snapshotId: string;
+	sourceSnapshotId: string | null;
+	createdAtUnixMs: number;
+	expiresAtUnixMs: number;
+	kind: ChangeKind;
+	device: DiagnosisReport["device"];
+	androidUser: NonNullable<DiagnosisReport["androidUser"]>;
+	target: ComponentName;
+	before: ManagedCredentialState;
+	after: ManagedCredentialState;
+};
+
+export type ChangeOutcome = {
+	schemaVersion: number;
+	planId: string;
+	snapshotId: string;
+	status: "applied" | "restored" | "recovered" | "recoveryFailed";
+	completedAtUnixMs: number;
+	steps: Array<{ key: string; success: boolean; error: string | null }>;
+	recoverySteps: Array<{ key: string; success: boolean; error: string | null }>;
+	observed: ManagedCredentialState;
+};
+
+export type SnapshotRecord = {
+	schemaVersion: number;
+	revision: number;
+	snapshotId: string;
+	planId: string;
+	sourceSnapshotId: string | null;
+	createdAtUnixMs: number;
+	updatedAtUnixMs: number;
+	status:
+		| "planned"
+		| "expired"
+		| "applied"
+		| "recovered"
+		| "recoveryFailed"
+		| "restored";
+	kind: ChangeKind;
+	adb: ValidatedAdb;
+	device: DiagnosisReport["device"];
+	androidUser: NonNullable<DiagnosisReport["androidUser"]>;
+	target: ComponentName;
+	before: ManagedCredentialState;
+	intendedAfter: ManagedCredentialState;
+	lastObserved: ManagedCredentialState | null;
+	message: string | null;
+};
+
+export type SnapshotInventory = {
+	schemaVersion: number;
+	snapshots: SnapshotRecord[];
+	warnings: Array<{ file: string; code: string; message: string }>;
+};
+
 export type DemoFixture = {
 	schemaVersion: number;
 	simulated: true;
@@ -132,6 +239,9 @@ export type DemoFixture = {
 		devices: Array<Omit<DeviceChoice, "deviceId">>;
 	};
 	report: DiagnosisReport;
+	pinPreview: ChangePreview;
+	pinOutcome: ChangeOutcome;
+	snapshots: SnapshotInventory;
 };
 
 export function getAppInfo(): Promise<AppInfo> {
@@ -158,14 +268,63 @@ export function listDevices(): Promise<DeviceList> {
 	return invoke<DeviceList>("list_devices");
 }
 
-export function inspectDevice(deviceId: string): Promise<DiagnosisReport> {
-	return invoke<DiagnosisReport>("inspect_device", { deviceId });
+export function inspectDevice(deviceId: string): Promise<InspectionView> {
+	return invoke<InspectionView>("inspect_device", { deviceId });
+}
+
+export function preparePin(
+	deviceId: string,
+	providerId: string,
+	allowUnparsed: boolean,
+): Promise<ChangePreview> {
+	return invoke<ChangePreview>("prepare_pin", {
+		deviceId,
+		providerId,
+		allowUnparsed,
+	});
+}
+
+export function createPinPlan(previewId: string): Promise<ChangePlan> {
+	return invoke<ChangePlan>("create_pin_plan", { previewId });
+}
+
+export function executePinPlan(planId: string): Promise<ChangeOutcome> {
+	return invoke<ChangeOutcome>("execute_pin_plan", { planId });
+}
+
+export function listSnapshots(): Promise<SnapshotInventory> {
+	return invoke<SnapshotInventory>("list_snapshots");
+}
+
+export function prepareRestore(
+	deviceId: string,
+	snapshotId: string,
+): Promise<ChangePreview> {
+	return invoke<ChangePreview>("prepare_restore", { deviceId, snapshotId });
+}
+
+export function createRestorePlan(previewId: string): Promise<ChangePlan> {
+	return invoke<ChangePlan>("create_restore_plan", { previewId });
+}
+
+export function executeRestorePlan(planId: string): Promise<ChangeOutcome> {
+	return invoke<ChangeOutcome>("execute_restore_plan", { planId });
+}
+
+export function discardChangePlan(planId: string): Promise<void> {
+	return invoke<void>("discard_change_plan", { planId });
 }
 
 export function setOnboardingStatus(
 	status: OnboardingStatus,
 ): Promise<StartupState> {
 	return invoke<StartupState>("set_onboarding_status", { status });
+}
+
+export function setThemePreference(
+	preference: ThemePreference,
+): Promise<StartupState> {
+	return invoke<StartupState>("set_theme_preference", { preference });
 }
 
 export function getDemoFixture(): Promise<DemoFixture> {

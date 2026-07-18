@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const PRODUCT_NAME: &str = "Android Credential Provider Fixer";
-pub const DEVELOPMENT_PHASE: &str = "phase-1-read-only";
+pub const DEVELOPMENT_PHASE: &str = "phase-2-verified-changes";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,7 +20,7 @@ pub fn app_info() -> AppInfo {
         version: env!("CARGO_PKG_VERSION").to_owned(),
         development_phase: DEVELOPMENT_PHASE.to_owned(),
         adb_read_operations_enabled: true,
-        adb_write_operations_enabled: false,
+        adb_write_operations_enabled: true,
     }
 }
 
@@ -33,9 +33,9 @@ mod tests {
         let info = app_info();
 
         assert_eq!(info.product_name, PRODUCT_NAME);
-        assert_eq!(info.version, "0.1.0-alpha.2");
+        assert_eq!(info.version, "0.1.0-alpha.3");
         assert_eq!(info.development_phase, DEVELOPMENT_PHASE);
         assert!(info.adb_read_operations_enabled);
-        assert!(!info.adb_write_operations_enabled);
+        assert!(info.adb_write_operations_enabled);
     }
 }

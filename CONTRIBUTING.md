@@ -16,7 +16,7 @@ Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, and `just
 
 - Keep domain policy and orchestration in `packages/core`; concrete platform access belongs in an app adapter.
 - Do not expose arbitrary commands to the WebView or add shell-string execution.
-- Do not add device writes without the approved plan/snapshot/verification/recovery flow.
+- Device writes belong only in the bounded Core change executor and must preserve the plan/snapshot/state-check/read-back/recovery flow. Never add a third writable setting key.
 - Do not test against a real device by default.
 - Keep Demo Mode isolated from live discovery and inspection adapters.
 - Update current-state docs with behavior changes; record historical changes in a changelog.

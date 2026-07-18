@@ -22,9 +22,11 @@ _Single source of truth for agent behavior and project engineering rules._
 - Never concatenate shell commands or invoke `sh -c`, `cmd /C`, or PowerShell command strings.
 - Every Android device command must eventually use an explicitly selected serial and Android user.
 - Do not modify `autofill_service`, passkeys, vault data, or unrelated Android settings.
-- Phase 1 is read-only. Do not add `settings put` or `settings delete` before the planned snapshot, confirmation, verification, and restore design is implemented.
+- Device writes are limited to the Core change executor and the two managed secure keys. Every write requires a current diagnosis, expiring one-use plan, atomic snapshot, state-drift check, per-field read-back, and automatic recovery.
+- `autofill_service` is always read-only. Do not add force-stop, ADB server management, arbitrary setting keys, or bypasses for plan expiry and state drift.
 - Phase 1 device reads are limited to ADB version/device enumeration, the documented device properties, foreground user, Credential Provider service query, and the three allowlisted settings.
 - Demo Mode uses bundled DTOs and must never fall through to real ADB discovery, enumeration, or inspection.
+- Simulated Pin and Restore must stay inside Demo fixtures and never call live change IPC.
 - Tauri capabilities must not grant shell execute or spawn access to the frontend.
 - Do not connect to or modify a real Android device unless the user explicitly requests it. Tests use mocks or fake executables.
 - Runtime behavior is local-only by default: no analytics, crash uploads, or silent downloads.
@@ -35,7 +37,9 @@ _Single source of truth for agent behavior and project engineering rules._
 - Model timeouts, output limits, missing settings, and errors explicitly; do not collapse distinct states.
 - Comments explain why, not what. Avoid speculative abstractions and one-line file fragmentation.
 - TypeScript stays strict and uses explicit finite-state models instead of unrelated Boolean flags.
-- UI code uses Solid signals and native CSS; do not add a router, UI component framework, or global state library without approval.
+- UI code uses Solid signals, Tailwind CSS 4, CSS-first semantic theme tokens, and the local primitives under `apps/tauri-app/src/ui`. Do not add a router, global state library, Park UI, Ark UI, Panda CSS, or another component runtime without approval.
+- Keep the local primitive boundary compatible with Park UI-style `size`, `variant`, and semantic state APIs so a future migration does not leak utility-class details into workflow logic. Use Slate for neutral surfaces and Teal as the single accent; add or change colors through light/dark semantic tokens rather than page-local values.
+- User-facing pages must not expose internal phase names, DTO names, enum codes, or mixed-language implementation terminology. English and Chinese message structures stay symmetric, while fixed ADB setting keys and raw package/component values remain unchanged.
 - Rust code must pass rustfmt and Clippy with warnings denied.
 
 ## Tooling and Verification

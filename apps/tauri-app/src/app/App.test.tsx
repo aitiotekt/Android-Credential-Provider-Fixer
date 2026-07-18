@@ -10,13 +10,23 @@ const api = vi.hoisted(() => ({
 	chooseAdbExecutable: vi.fn(),
 	listDevices: vi.fn(),
 	inspectDevice: vi.fn(),
+	preparePin: vi.fn(),
+	createPinPlan: vi.fn(),
+	executePinPlan: vi.fn(),
+	listSnapshots: vi.fn(),
+	prepareRestore: vi.fn(),
+	createRestorePlan: vi.fn(),
+	executeRestorePlan: vi.fn(),
+	discardChangePlan: vi.fn(),
 	setOnboardingStatus: vi.fn(),
+	setThemePreference: vi.fn(),
 	getDemoFixture: vi.fn(),
 }));
 
 const tutorial = vi.hoisted(() => ({
 	startTutorial: vi.fn(),
 	stopTutorial: vi.fn(),
+	advanceTutorial: vi.fn(),
 }));
 
 vi.mock("../lib/tauri", () => api);
@@ -110,6 +120,14 @@ describe("App", () => {
 
 	beforeEach(() => {
 		window.localStorage.clear();
+		Object.defineProperty(window, "matchMedia", {
+			configurable: true,
+			value: vi.fn().mockReturnValue({
+				matches: false,
+				addEventListener: vi.fn(),
+				removeEventListener: vi.fn(),
+			}),
+		});
 		Object.defineProperty(window.navigator, "language", {
 			configurable: true,
 			value: "en-US",
@@ -123,24 +141,27 @@ describe("App", () => {
 		}
 		tutorial.startTutorial.mockReset();
 		tutorial.stopTutorial.mockReset();
+		tutorial.advanceTutorial.mockReset();
 		api.getAppInfo.mockResolvedValue({
 			productName: "Android Credential Provider Fixer",
-			version: "0.1.0-alpha.2",
-			developmentPhase: "phase-1-read-only",
+			version: "0.1.0-alpha.3",
+			developmentPhase: "phase-2-verified-changes",
 			adbReadOperationsEnabled: true,
-			adbWriteOperationsEnabled: false,
+			adbWriteOperationsEnabled: true,
 		});
 		api.getStartupState.mockResolvedValue({
 			schemaVersion: 1,
-			onboardingVersion: 1,
+			onboardingVersion: 2,
 			onboardingStatus: "skipped",
+			themePreference: "system",
 			selectedAdb: null,
 			preferenceWarning: null,
 		});
 		api.setOnboardingStatus.mockResolvedValue({
 			schemaVersion: 1,
-			onboardingVersion: 1,
+			onboardingVersion: 2,
 			onboardingStatus: "skipped",
+			themePreference: "system",
 			selectedAdb: null,
 			preferenceWarning: null,
 		});
@@ -153,14 +174,14 @@ describe("App", () => {
 		container.remove();
 	});
 
-	it("renders the read-only phase and switches to Chinese", async () => {
+	it("renders the localized welcome page and switches to Chinese", async () => {
 		dispose = render(() => <App />, container);
 		await flushPromises();
 
 		expect(container.textContent).toContain(
 			"Make hidden Credential Provider state visible",
 		);
-		expect(container.textContent).toContain("0.1.0-alpha.2");
+		expect(container.textContent).toContain("0.1.0-alpha.3");
 		const select = container.querySelector("select");
 		expect(select).not.toBeNull();
 		if (!select) {
@@ -170,9 +191,7 @@ describe("App", () => {
 		select.dispatchEvent(new Event("input", { bubbles: true }));
 		await flushPromises();
 
-		expect(container.textContent).toContain(
-			"让隐藏的 Credential Provider 状态可见",
-		);
+		expect(container.textContent).toContain("看清隐藏的凭据提供方状态");
 		expect(window.localStorage.getItem("acp-fixer.locale")).toBe("zh");
 	});
 
@@ -188,14 +207,25 @@ describe("App", () => {
 			observedAtUnixMs: 1,
 			devices: [device],
 		});
-		api.inspectDevice.mockResolvedValue(report);
+		api.inspectDevice.mockResolvedValue({
+			schemaVersion: 1,
+			report,
+			providers: [{ ...report.providers[0], providerId: "provider-1-0" }],
+		});
 		dispose = render(() => <App />, container);
 		await flushPromises();
 
-		clickButton(container, "Start read-only diagnosis");
+		clickButton(container, "Start diagnosis");
 		await flushPromises();
 		clickButton(container, "Use this ADB");
 		await flushPromises();
+		expect(container.querySelectorAll("[data-tour='adb-card']")).toHaveLength(
+			1,
+		);
+		const selectedAdbButton = [...container.querySelectorAll("button")].find(
+			(item) => item.textContent?.includes("Selected"),
+		);
+		expect(selectedAdbButton?.disabled).toBe(true);
 		clickButton(container, "Continue to devices");
 		await flushPromises();
 		clickButton(container, "Inspect this device");
@@ -210,7 +240,7 @@ describe("App", () => {
 		checkbox.checked = true;
 		checkbox.dispatchEvent(new Event("input", { bubbles: true }));
 		await flushPromises();
-		clickButton(container, "Run read-only diagnosis");
+		clickButton(container, "Run diagnosis");
 		await flushPromises();
 
 		expect(api.inspectDevice).toHaveBeenCalledWith("device-1-0");
@@ -247,11 +277,121 @@ describe("App", () => {
 		checkbox.checked = true;
 		checkbox.dispatchEvent(new Event("input", { bubbles: true }));
 		await flushPromises();
-		clickButton(container, "Run read-only diagnosis");
+		clickButton(container, "Run diagnosis");
 		await flushPromises();
 
-		expect(container.textContent).toContain("Simulated Demo");
+		expect(container.textContent).toContain("Simulated mode");
 		expect(api.discoverAdb).not.toHaveBeenCalled();
+		expect(api.listDevices).not.toHaveBeenCalled();
+		expect(api.inspectDevice).not.toHaveBeenCalled();
+	});
+
+	it("lets tutorial navigation move forward and backward across views", async () => {
+		const before = {
+			enabled: { kind: "value", raw: "com.google/.Provider", parseable: true },
+			primary: { kind: "missing" },
+		};
+		const after = {
+			enabled: { kind: "value", raw: "com.example/.Provider", parseable: true },
+			primary: { kind: "value", raw: "com.example/.Provider", parseable: true },
+		};
+		const pinPreview = {
+			schemaVersion: 1,
+			previewId: "demo-preview-pin",
+			sourceSnapshotId: null,
+			kind: "pin",
+			createdAtUnixMs: 1,
+			adb,
+			device: report.device,
+			androidUser: report.androidUser,
+			target: report.providers[0]?.component,
+			registeredProviders: ["com.example/.Provider"],
+			before,
+			after,
+			requiresUnparsedConfirmation: false,
+			allowUnparsed: false,
+			blockers: [],
+		};
+		const snapshot = {
+			schemaVersion: 1,
+			revision: 2,
+			snapshotId: "demo-snapshot-pin",
+			planId: "demo-plan-pin",
+			sourceSnapshotId: null,
+			createdAtUnixMs: 1,
+			updatedAtUnixMs: 2,
+			status: "applied",
+			kind: "pin",
+			adb,
+			device: report.device,
+			androidUser: report.androidUser,
+			target: report.providers[0]?.component,
+			before,
+			intendedAfter: after,
+			lastObserved: after,
+			message: null,
+		};
+		const pinOutcome = {
+			schemaVersion: 1,
+			planId: "demo-plan-pin",
+			snapshotId: "demo-snapshot-pin",
+			status: "applied",
+			completedAtUnixMs: 2,
+			steps: [],
+			recoverySteps: [],
+			observed: after,
+		};
+		api.getDemoFixture.mockResolvedValue({
+			schemaVersion: 1,
+			simulated: true,
+			adb,
+			devices: {
+				observedAtUnixMs: 1,
+				devices: [{ ...device, deviceId: undefined }],
+			},
+			report: { ...report, mode: "demo" },
+			pinPreview,
+			pinOutcome,
+			snapshots: { schemaVersion: 1, snapshots: [snapshot], warnings: [] },
+		});
+		dispose = render(() => <App />, container);
+		await flushPromises();
+
+		clickButton(container, "Start tutorial");
+		await flushPromises();
+		const callbacks = tutorial.startTutorial.mock.calls[0]?.[1] as
+			| { sceneChanged?: (scene: string) => void }
+			| undefined;
+
+		callbacks?.sceneChanged?.("devices");
+		await flushPromises();
+		expect(container.querySelector("[data-tour='device-card']")).not.toBeNull();
+
+		callbacks?.sceneChanged?.("adb");
+		await flushPromises();
+		expect(
+			container.querySelector("[data-tour='continue-adb']"),
+		).not.toBeNull();
+		expect(container.textContent).toContain(adb.path);
+
+		for (const [scene, selector] of [
+			["confirmation", "[data-tour='confirmation']"],
+			["diagnosis", "[data-tour='diagnosis-result']"],
+			["pinPreview", "[data-tour='plan-preview']"],
+			["pinConfirmation", "[data-tour='device-write-confirm']"],
+			["pinOutcome", "[data-tour='change-outcome']"],
+			["snapshots", "[data-tour='preview-restore']"],
+			["restorePreview", "[data-tour='risk-confirm']"],
+			["restoreConfirmation", "[data-tour='apply-change']"],
+			["restoreOutcome", "[data-tour='change-outcome']"],
+		] as const) {
+			callbacks?.sceneChanged?.(scene);
+			await flushPromises();
+			expect(
+				container.querySelector(selector),
+				`${scene} target`,
+			).not.toBeNull();
+		}
 		expect(api.listDevices).not.toHaveBeenCalled();
 		expect(api.inspectDevice).not.toHaveBeenCalled();
 	});
@@ -261,6 +401,7 @@ describe("App", () => {
 			schemaVersion: 1,
 			onboardingVersion: 1,
 			onboardingStatus: null,
+			themePreference: "system",
 			selectedAdb: null,
 			preferenceWarning: null,
 		});
@@ -281,5 +422,53 @@ describe("App", () => {
 		await flushPromises();
 
 		expect(container.textContent).toContain("The local core is unavailable");
+	});
+
+	it("applies and persists an explicit theme preference", async () => {
+		api.getStartupState.mockResolvedValue({
+			schemaVersion: 1,
+			onboardingVersion: 2,
+			onboardingStatus: "skipped",
+			themePreference: "dark",
+			selectedAdb: null,
+			preferenceWarning: null,
+		});
+		api.setThemePreference.mockResolvedValue({
+			schemaVersion: 1,
+			onboardingVersion: 2,
+			onboardingStatus: "skipped",
+			themePreference: "light",
+			selectedAdb: null,
+			preferenceWarning: null,
+		});
+		dispose = render(() => <App />, container);
+		await flushPromises();
+
+		expect(document.documentElement.dataset.theme).toBe("dark");
+		container.querySelector<HTMLInputElement>('input[value="light"]')?.click();
+		await flushPromises();
+
+		expect(api.setThemePreference).toHaveBeenCalledWith("light");
+		expect(document.documentElement.dataset.theme).toBe("light");
+		expect(document.documentElement.style.colorScheme).toBe("light");
+	});
+
+	it("rolls back the theme when preference persistence fails", async () => {
+		api.setThemePreference.mockRejectedValue({
+			code: "PREFERENCE_WRITE_FAILED",
+			message: "Could not save preference.",
+		});
+		dispose = render(() => <App />, container);
+		await flushPromises();
+
+		container.querySelector<HTMLInputElement>('input[value="dark"]')?.click();
+		await flushPromises();
+
+		expect(document.documentElement.dataset.theme).toBe("light");
+		expect(container.textContent).toContain("Could not save preference");
+		expect(
+			container.querySelector<HTMLInputElement>('input[value="system"]')
+				?.checked,
+		).toBe(true);
 	});
 });

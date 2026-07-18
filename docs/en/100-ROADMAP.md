@@ -7,7 +7,7 @@
 - Tauri Rust and Tokio CLI adapters
 - Documentation, VitePress, repository tooling, and cross-platform build CI
 
-## Phase 1 — read-only diagnosis — current
+## Phase 1 — read-only diagnosis — complete
 
 - ADB discovery, path selection, and version validation
 - Device enumeration and explicit confirmation
@@ -18,17 +18,19 @@
 
 Phase 1 contains no `settings put` or `settings delete`.
 
-## Phase 2 — plans and snapshots
+## Phase 2 — plans, snapshots, and bounded recovery — current
 
 - Before/after diff and expiring one-use plan IDs
 - Versioned atomic snapshots bound to a device and user
 - State-change detection and restore preview
-
-## Phase 3 — verified writes and recovery
-
 - Exclusive Provider Pin
 - Per-write read-back verification and automatic recovery
-- Manual restore, selected-provider refresh, and fixed WebAuthn test URL
+- Guarded manual restore
+
+## Phase 3 — provider validation helpers
+
+- Selected-provider refresh without arbitrary package commands
+- Fixed WebAuthn test URL
 
 ## Phase 4 — reports and releases
 

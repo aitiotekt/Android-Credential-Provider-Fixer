@@ -8,11 +8,11 @@ Phase 1 reads only manufacturer, model, codename, Android release/API, the foreg
 
 Provider components are candidates only when returned by package service enumeration for `android.service.credentials.CredentialProviderService`. Registration does not prove passkey capability, compatibility, or an unlocked vault.
 
-## Planned writes
+## Verified bounded writes
 
-The only planned write mode is Exclusive Provider Pin. It sets the selected component as both `credential_service` and `credential_service_primary`, leaves `autofill_service` untouched, and does not preserve unverified fallback encodings.
+The only write mode is Exclusive Provider Pin. It sets the explicitly selected registered component as both `credential_service` and `credential_service_primary`, leaves `autofill_service` untouched, and does not preserve fallback providers in the applied state. Readable unfamiliar OEM raw values require an extra acknowledgement and are preserved in the snapshot; unavailable values cannot be written.
 
-A write requires two explicit confirmations and a backend-created, one-use, expiring plan bound to the device, user, component, and before-state. Execution revalidates all inputs, aborts when state changed, persists an atomic snapshot, writes one field at a time, reads it back, and restores both managed fields after any partial failure. A missing original setting is restored with `settings delete`, never by writing the string `null`.
+A write requires two GUI confirmations or CLI `--apply` and a backend-created, one-use five-minute plan bound to the device, user, registered Provider set, component, and before-state. Execution aborts on drift, writes one field at a time, reads it back, and restores both managed fields after any partial failure. Missing original settings use `settings delete`; empty and raw values are restored as separate arguments, never shell strings.
 
 CI and ordinary tests never invoke ADB. Real-device read tests require an explicit environment opt-in; write tests require a second independent opt-in and are not part of automated CI.
 

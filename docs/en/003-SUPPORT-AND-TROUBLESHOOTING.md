@@ -4,11 +4,11 @@
 
 | Environment | Status |
 | --- | --- |
-| Android 14 / API 34 and newer | Phase 1 read-only diagnosis |
+| Android 14 / API 34 and newer | Diagnosis plus guarded Pin and Restore |
 | Xiaomi HyperOS | Initial investigation and Demo scenario |
-| Other OEM devices | Conservative read-only diagnosis; unfamiliar values remain unparsed |
+| Other OEM devices | Conservative diagnosis; unfamiliar readable values require an additional write-risk confirmation |
 | Android 13 and older | Device information only; repair unsupported |
-| Work profiles and secondary users | Phase 1 reads only the explicit foreground user |
+| Work profiles and secondary users | Operations are bound to the explicitly detected foreground user |
 
 ## Typical symptoms
 

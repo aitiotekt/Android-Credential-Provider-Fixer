@@ -7,7 +7,7 @@ fn cli() -> Command {
 }
 
 #[test]
-fn help_lists_the_phase_one_commands() {
+fn help_lists_the_public_commands() {
     let output = cli().arg("--help").output().unwrap();
 
     assert!(output.status.success());
@@ -15,6 +15,9 @@ fn help_lists_the_phase_one_commands() {
     assert!(stdout.contains("devices"));
     assert!(stdout.contains("diagnose"));
     assert!(stdout.contains("demo"));
+    assert!(stdout.contains("pin"));
+    assert!(stdout.contains("snapshots"));
+    assert!(stdout.contains("restore"));
 }
 
 #[test]
@@ -24,7 +27,7 @@ fn version_matches_workspace_version() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap().trim(),
-        "acp-fixer 0.1.0-alpha.2"
+        "acp-fixer 0.1.0-alpha.3"
     );
 }
 

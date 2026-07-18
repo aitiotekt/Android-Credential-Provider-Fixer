@@ -16,7 +16,7 @@ just verify
 
 - 领域策略与编排放在 `packages/core`，具体平台访问放在对应 app adapter。
 - 不得向 WebView 暴露任意命令，也不得加入 shell 字符串执行。
-- 未实现获批的 plan、快照、验证和恢复流程前，不得加入设备写操作。
+- 设备写入只能存在于有限 Core change executor，并必须保留 plan、快照、状态检查、回读和恢复流程；不得增加第三个可写 setting key。
 - 默认测试不得连接真实设备。
 - Demo Mode 必须与真实发现和检查 adapter 隔离。
 - 行为变化应更新当前状态文档；历史变化应记录在 changelog 中。

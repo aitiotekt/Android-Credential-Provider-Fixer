@@ -3,7 +3,7 @@
 	"compilerOptions": {
 		"lib": ["ES2024", "DOM", "DOM.Iterable"],
 		"outDir": "./dist-tsc/test",
-		"types": ["vite/client", "vitest/globals"]
+		"types": ["node", "vite/client", "vitest/globals"]
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx"],
 	"exclude": []

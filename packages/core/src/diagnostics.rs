@@ -13,8 +13,8 @@ use crate::{
     run_command,
 };
 
-const ADB_COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
-const ADB_COMMAND_MAX_OUTPUT_BYTES: usize = 256 * 1024;
+pub(crate) const ADB_COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const ADB_COMMAND_MAX_OUTPUT_BYTES: usize = 256 * 1024;
 const CREDENTIAL_PROVIDER_ACTION: &str = "android.service.credentials.CredentialProviderService";
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
@@ -311,6 +311,20 @@ pub fn parse_component(value: &str) -> Option<ComponentName> {
     })
 }
 
+#[must_use]
+pub fn canonical_component_name(component: &ComponentName) -> String {
+    let class = if component.service_class.starts_with('.') {
+        format!("{}{}", component.package_name, component.service_class)
+    } else {
+        component.service_class.clone()
+    };
+    format!("{}/{class}", component.package_name)
+}
+
+fn same_component(left: &ComponentName, right: &ComponentName) -> bool {
+    canonical_component_name(left) == canonical_component_name(right)
+}
+
 pub fn parse_provider_services(output: &[u8]) -> Result<Vec<ComponentName>, DiagnosticError> {
     let text = std::str::from_utf8(output).map_err(|_| DiagnosticError::OutputInvalid {
         stage: "provider-query".to_owned(),
@@ -566,7 +580,7 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
     }
     let registered_names = registered
         .iter()
-        .map(|component| component.flattened.as_str())
+        .map(canonical_component_name)
         .collect::<HashSet<_>>();
     if registered.is_empty() {
         report.findings.push(Finding {
@@ -584,7 +598,7 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
             });
         }
         for component in enabled {
-            if !registered_names.contains(component.flattened.as_str()) {
+            if !registered_names.contains(&canonical_component_name(component)) {
                 report.findings.push(Finding {
                     code: FindingCode::EnabledProviderNotRegistered,
                     severity: FindingSeverity::Warning,
@@ -602,7 +616,7 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
             });
         }
         for component in primary {
-            if !registered_names.contains(component.flattened.as_str()) {
+            if !registered_names.contains(&canonical_component_name(component)) {
                 report.findings.push(Finding {
                     code: FindingCode::PrimaryProviderNotRegistered,
                     severity: FindingSeverity::Warning,
@@ -610,7 +624,7 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
                 });
             }
             if let Some(enabled) = enabled
-                && !enabled.contains(component)
+                && !enabled.iter().any(|item| same_component(item, component))
             {
                 report.findings.push(Finding {
                     code: FindingCode::PrimaryProviderNotEnabled,
@@ -641,10 +655,10 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
         .into_iter()
         .map(|component| ProviderService {
             enabled: enabled
-                .map(|items| items.contains(&component))
+                .map(|items| items.iter().any(|item| same_component(item, &component)))
                 .unwrap_or(false),
             primary: primary
-                .map(|items| items.contains(&component))
+                .map(|items| items.iter().any(|item| same_component(item, &component)))
                 .unwrap_or(false),
             same_package_as_autofill: autofill
                 .map(|items| {
@@ -695,7 +709,7 @@ async fn read_property(
     Ok(output_text(&output.stdout, property)?.trim().to_owned())
 }
 
-async fn read_setting(
+pub(crate) async fn read_setting(
     runner: &(impl CommandRunner + ?Sized),
     adb: &ValidatedAdb,
     serial: &str,
@@ -741,7 +755,7 @@ async fn run_adb<const N: usize>(
     Ok(run_command(runner, &request).await?)
 }
 
-async fn run_device_adb<const N: usize>(
+pub(crate) async fn run_device_adb<const N: usize>(
     runner: &(impl CommandRunner + ?Sized),
     adb: &ValidatedAdb,
     serial: &str,
@@ -758,7 +772,7 @@ async fn run_device_adb<const N: usize>(
     Ok(run_command(runner, &request).await?)
 }
 
-fn ensure_success(output: &CommandOutput, stage: &str) -> Result<(), DiagnosticError> {
+pub(crate) fn ensure_success(output: &CommandOutput, stage: &str) -> Result<(), DiagnosticError> {
     if output.exit_code == Some(0) {
         return Ok(());
     }
@@ -792,7 +806,7 @@ fn attribute(value: &str, key: &str) -> Option<String> {
     })
 }
 
-fn now_unix_ms() -> u64 {
+pub(crate) fn now_unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

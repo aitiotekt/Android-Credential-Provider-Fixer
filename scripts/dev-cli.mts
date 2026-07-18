@@ -33,7 +33,7 @@ type JavaScriptPackage = {
 };
 
 const repoRoot = resolve(import.meta.dirname, "..");
-const expectedVersion = "0.1.0-alpha.2";
+const expectedVersion = "0.1.0-alpha.3";
 const genericIconSource = "assets/icons/app-icon.png";
 const macosLegacyIconSource = "assets/icons/app-icon-macos-legacy.png";
 const generatedIconDirectory = "apps/tauri-app/src-tauri/icons";
@@ -484,14 +484,23 @@ function checkSecurity(): void {
 	});
 	const expectedCommands = [
 		"choose_adb_executable",
+		"create_pin_plan",
+		"create_restore_plan",
+		"discard_change_plan",
 		"discover_adb",
+		"execute_pin_plan",
+		"execute_restore_plan",
 		"get_app_info",
 		"get_demo_fixture",
 		"get_startup_state",
 		"inspect_device",
 		"list_devices",
+		"list_snapshots",
+		"prepare_pin",
+		"prepare_restore",
 		"select_adb_candidate",
 		"set_onboarding_status",
+		"set_theme_preference",
 	].sort();
 	commandNames.sort();
 	if (JSON.stringify(commandNames) !== JSON.stringify(expectedCommands)) {
@@ -524,17 +533,42 @@ function checkSecurity(): void {
 		...filesUnder("apps/cli/src", new Set([".rs"])),
 		...filesUnder("packages/core/src", new Set([".rs"])),
 	];
-	const forbiddenPatterns = [
+	const universallyForbiddenPatterns = [
 		/\.args?\(\s*["'](?:-c|\/[cC]|-Command)["']\s*\)/,
+		/["'](?:kill-server|start-server|force-stop)["']/,
+	];
+	const settingsWritePatterns = [
 		/settings\s+(?:put|delete)/,
 		/["']settings["'][\s\S]{0,300}["'](?:put|delete)["']/,
-		/["'](?:kill-server|start-server|force-stop)["']/,
 	];
 	for (const path of executableSources) {
 		const source = readFileSync(resolve(repoRoot, path), "utf8");
-		if (forbiddenPatterns.some((pattern) => pattern.test(source))) {
+		if (universallyForbiddenPatterns.some((pattern) => pattern.test(source))) {
 			throw new Error(
-				`Forbidden shell string or settings write found in ${path}.`,
+				`Forbidden shell or ADB server command found in ${path}.`,
+			);
+		}
+		const hasSettingsWrite = settingsWritePatterns.some((pattern) =>
+			pattern.test(source),
+		);
+		if (hasSettingsWrite && path !== "packages/core/src/changes.rs") {
+			throw new Error(
+				`Settings write found outside the bounded Core writer: ${path}.`,
+			);
+		}
+	}
+	const writer = readFileSync(
+		resolve(repoRoot, "packages/core/src/changes.rs"),
+		"utf8",
+	);
+	for (const required of [
+		'const ENABLED_KEY: &str = "credential_service"',
+		'const PRIMARY_KEY: &str = "credential_service_primary"',
+		"debug_assert!(matches!(key, ENABLED_KEY | PRIMARY_KEY))",
+	]) {
+		if (!writer.includes(required)) {
+			throw new Error(
+				`Bounded settings writer invariant is missing: ${required}`,
 			);
 		}
 	}

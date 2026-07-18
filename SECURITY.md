@@ -2,7 +2,7 @@
 
 ## Current status
 
-Version `0.1.0-alpha.2` performs only the documented Phase 1 ADB reads. It cannot change Android settings. Security-sensitive device modification remains out of scope until the snapshot, plan, verification, and recovery design is implemented and tested.
+Version `0.1.0-alpha.3` permits only the documented reads and bounded writes to `credential_service` and `credential_service_primary`. A write requires a current enumerated device/provider, a five-minute one-use plan, an atomic snapshot, exact state revalidation, read-back verification, and automatic recovery. `autofill_service` remains read-only.
 
 ## Security boundaries
 

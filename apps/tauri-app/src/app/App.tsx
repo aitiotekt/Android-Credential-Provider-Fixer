@@ -14,40 +14,84 @@ import {
 	type AdbCandidate,
 	type AdbDiscovery,
 	type AppInfo,
+	type ChangeBlocker,
+	type ChangeOutcome,
+	type ChangePlan,
+	type ChangePreview,
+	type ComponentName,
 	chooseAdbExecutable,
+	createPinPlan,
+	createRestorePlan,
 	type DemoFixture,
 	type DeviceChoice,
 	type DeviceList,
 	type DiagnosisReport,
+	discardChangePlan,
 	discoverAdb,
 	type ErrorEnvelope,
+	executePinPlan,
+	executeRestorePlan,
 	getAppInfo,
 	getDemoFixture,
 	getStartupState,
 	inspectDevice,
 	listDevices,
+	listSnapshots,
+	type ProviderChoice,
+	preparePin,
+	prepareRestore,
 	type SettingObservation,
 	type SettingValue,
+	type SnapshotInventory,
+	type SnapshotRecord,
 	type StartupState,
 	selectAdbCandidate,
 	setOnboardingStatus,
+	setThemePreference,
+	type ThemePreference,
 	type ValidatedAdb,
 } from "../lib/tauri";
-import { startTutorial, stopTutorial } from "./tutorial";
+import { createThemeController } from "../theme/theme";
+import {
+	Badge,
+	Button,
+	Card,
+	Checkbox,
+	CodeValue,
+	cx,
+	Field,
+	Notice,
+	Panel,
+	type ProgressItem,
+	ProgressSteps,
+	SegmentedControl,
+} from "../ui/primitives";
+import {
+	advanceTutorial,
+	startTutorial,
+	stopTutorial,
+	type TutorialScene,
+} from "./tutorial";
 
-type WorkflowStep =
+export type WorkflowStep =
 	| "welcome"
 	| "adb"
 	| "devices"
 	| "confirm"
 	| "diagnosing"
-	| "result";
+	| "result"
+	| "plan"
+	| "planConfirm"
+	| "applying"
+	| "outcome"
+	| "snapshots";
 
 type Mode = "real" | "demo";
 
 export function App() {
 	const i18n = createLocaleController();
 	const text = i18n.messages;
+	const theme = createThemeController();
 	const [step, setStep] = createSignal<WorkflowStep>("welcome");
 	const [mode, setMode] = createSignal<Mode>("real");
 	const [appInfo, setAppInfo] = createSignal<AppInfo>();
@@ -63,21 +107,29 @@ export function App() {
 	const [selectedDevice, setSelectedDevice] = createSignal<DeviceChoice>();
 	const [confirmed, setConfirmed] = createSignal(false);
 	const [report, setReport] = createSignal<DiagnosisReport>();
+	const [providers, setProviders] = createSignal<ProviderChoice[]>([]);
+	const [selectedProvider, setSelectedProvider] =
+		createSignal<ProviderChoice>();
+	const [preview, setPreview] = createSignal<ChangePreview>();
+	const [plan, setPlan] = createSignal<ChangePlan>();
+	const [outcome, setOutcome] = createSignal<ChangeOutcome>();
+	const [snapshots, setSnapshots] = createSignal<SnapshotInventory>();
+	const [riskConfirmed, setRiskConfirmed] = createSignal(false);
+	const [allowUnparsed, setAllowUnparsed] = createSignal(false);
 	const [demo, setDemo] = createSignal<DemoFixture>();
 	const [copied, setCopied] = createSignal<string>();
+	const [themeSaving, setThemeSaving] = createSignal(false);
 
-	const steps = createMemo(() => [
-		{ id: "adb", label: text().stepAdb },
-		{ id: "devices", label: text().stepDevice },
-		{ id: "confirm", label: text().stepConfirm },
-		{ id: "result", label: text().stepResult },
-	]);
+	const progress = createMemo(() =>
+		progressItems(step(), preview()?.kind === "restore", text()),
+	);
 
 	onSettled(() => {
 		void Promise.all([getAppInfo(), getStartupState()])
 			.then(([info, state]) => {
 				setAppInfo(info);
 				setStartup(state);
+				theme.setPreference(state.themePreference);
 				setSelectedAdb(state.selectedAdb ?? undefined);
 				setShowOnboarding(state.onboardingStatus === null);
 			})
@@ -85,6 +137,23 @@ export function App() {
 	});
 
 	onCleanup(stopTutorial);
+
+	async function chooseTheme(preference: ThemePreference) {
+		const previous = theme.preference();
+		theme.setPreference(preference);
+		setThemeSaving(true);
+		setError(undefined);
+		try {
+			const state = await setThemePreference(preference);
+			setStartup(state);
+			theme.setPreference(state.themePreference);
+		} catch (reason) {
+			theme.setPreference(previous);
+			setError(errorFrom(reason));
+		} finally {
+			setThemeSaving(false);
+		}
+	}
 
 	async function startReal() {
 		stopTutorial();
@@ -110,12 +179,130 @@ export function App() {
 				startTutorial(text(), {
 					completed: () => finishTutorial("completed"),
 					dismissed: () => finishTutorial("skipped"),
+					sceneChanged: showTutorialScene,
+					targetMissing: () =>
+						setError({
+							code: "TUTORIAL_TARGET_UNAVAILABLE",
+							message: text().tourTargetMissing,
+						}),
 				});
 			}
 		} catch (reason) {
 			setError(errorFrom(reason));
 		} finally {
 			setBusy(false);
+		}
+	}
+
+	function showTutorialScene(scene: TutorialScene) {
+		const fixture = demo();
+		if (mode() !== "demo" || !fixture) {
+			return;
+		}
+		const device = fixture.devices.devices[0];
+		const choice = device
+			? { ...device, deviceId: "demo-device-0" }
+			: undefined;
+		const fixtureProviders = fixture.report.providers.map(
+			(provider, index) => ({
+				...provider,
+				providerId: `demo-provider-${index}`,
+			}),
+		);
+		const provider = fixtureProviders[0];
+		setError(undefined);
+		setSelectedAdb(fixture.adb);
+
+		switch (scene) {
+			case "adb":
+				setStep("adb");
+				return;
+			case "devices":
+				setDeviceList({
+					schemaVersion: fixture.schemaVersion,
+					observedAtUnixMs: fixture.devices.observedAtUnixMs,
+					devices: choice ? [choice] : [],
+				});
+				setStep("devices");
+				return;
+			case "confirmation":
+				if (!choice) {
+					return;
+				}
+				setSelectedDevice(choice);
+				setConfirmed(false);
+				setStep("confirm");
+				return;
+			case "diagnosis":
+				if (!choice) {
+					return;
+				}
+				setSelectedDevice(choice);
+				setConfirmed(true);
+				setReport(fixture.report);
+				setProviders(fixtureProviders);
+				setStep("result");
+				return;
+			case "pinPreview":
+				if (!choice || !provider) {
+					return;
+				}
+				setSelectedDevice(choice);
+				setSelectedProvider(provider);
+				setPreview(fixture.pinPreview);
+				setPlan(undefined);
+				setRiskConfirmed(false);
+				setStep("plan");
+				return;
+			case "pinConfirmation": {
+				const pinPlan = demoPlan(fixture.pinPreview);
+				setPreview(fixture.pinPreview);
+				setRiskConfirmed(true);
+				setPlan(pinPlan);
+				setStep("planConfirm");
+				return;
+			}
+			case "pinOutcome":
+				setOutcome(fixture.pinOutcome);
+				setStep("outcome");
+				return;
+			case "snapshots":
+				setOutcome(fixture.pinOutcome);
+				setSnapshots(fixture.snapshots);
+				setStep("snapshots");
+				return;
+			case "restorePreview": {
+				const source =
+					fixture.snapshots.snapshots.find(
+						(snapshot) => snapshot.status === "applied",
+					) ?? fixture.snapshots.snapshots[0];
+				if (!source) {
+					return;
+				}
+				setPreview(demoRestorePreview(source));
+				setPlan(undefined);
+				setRiskConfirmed(false);
+				setStep("plan");
+				return;
+			}
+			case "restoreConfirmation": {
+				const restorePreview = preview();
+				if (restorePreview?.kind !== "restore") {
+					return;
+				}
+				setRiskConfirmed(true);
+				setPlan(demoPlan(restorePreview));
+				setStep("planConfirm");
+				return;
+			}
+			case "restoreOutcome": {
+				const restorePlan = plan();
+				if (restorePlan?.kind !== "restore") {
+					return;
+				}
+				setOutcome(demoRestoreOutcome(restorePlan));
+				setStep("outcome");
+			}
 		}
 	}
 
@@ -141,6 +328,14 @@ export function App() {
 		setSelectedDevice(undefined);
 		setConfirmed(false);
 		setReport(undefined);
+		setProviders([]);
+		setSelectedProvider(undefined);
+		setPreview(undefined);
+		setPlan(undefined);
+		setOutcome(undefined);
+		setSnapshots(undefined);
+		setRiskConfirmed(false);
+		setAllowUnparsed(false);
 		setDemo(undefined);
 		if (mode() === "demo") {
 			setSelectedAdb(undefined);
@@ -209,6 +404,7 @@ export function App() {
 				})),
 			});
 			setStep("devices");
+			advanceTutorial("[data-tour='device-card']");
 			return;
 		}
 		setBusy(true);
@@ -229,6 +425,7 @@ export function App() {
 		setSelectedDevice(device);
 		setConfirmed(false);
 		setStep("confirm");
+		advanceTutorial("[data-tour='confirmation']");
 	}
 
 	async function runDiagnosis() {
@@ -242,16 +439,164 @@ export function App() {
 			const fixture = demo();
 			if (fixture) {
 				setReport(fixture.report);
+				setProviders(
+					fixture.report.providers.map((provider, index) => ({
+						...provider,
+						providerId: `demo-provider-${index}`,
+					})),
+				);
 				setStep("result");
+				advanceTutorial("[data-tour='diagnosis-result']");
 			}
 			return;
 		}
 		try {
-			setReport(await inspectDevice(device.deviceId));
+			const inspection = await inspectDevice(device.deviceId);
+			setReport(inspection.report);
+			setProviders(inspection.providers);
 			setStep("result");
+			advanceTutorial("[data-tour='diagnosis-result']");
 		} catch (reason) {
 			setError(errorFrom(reason));
 			setStep("confirm");
+		}
+	}
+
+	async function beginPin(provider: ProviderChoice) {
+		const device = selectedDevice();
+		if (!device) {
+			return;
+		}
+		setSelectedProvider(provider);
+		setRiskConfirmed(false);
+		setAllowUnparsed(false);
+		setError(undefined);
+		try {
+			const next =
+				mode() === "demo"
+					? demo()?.pinPreview
+					: await preparePin(device.deviceId, provider.providerId, false);
+			if (next) {
+				setPreview(next);
+				setStep("plan");
+				advanceTutorial("[data-tour='plan-preview']");
+			}
+		} catch (reason) {
+			setError(errorFrom(reason));
+		}
+	}
+
+	async function confirmPreview() {
+		const current = preview();
+		const device = selectedDevice();
+		const provider = selectedProvider();
+		if (!current || !device || !provider || !riskConfirmed()) {
+			return;
+		}
+		setBusy(true);
+		setError(undefined);
+		try {
+			let eligible = current;
+			if (
+				current.kind === "pin" &&
+				current.requiresUnparsedConfirmation &&
+				allowUnparsed() &&
+				mode() === "real"
+			) {
+				eligible = await preparePin(device.deviceId, provider.providerId, true);
+				setPreview(eligible);
+			}
+			if (eligible.blockers.length > 0) {
+				return;
+			}
+			const nextPlan =
+				mode() === "demo"
+					? demoPlan(eligible)
+					: eligible.kind === "pin"
+						? await createPinPlan(eligible.previewId)
+						: await createRestorePlan(eligible.previewId);
+			setPlan(nextPlan);
+			setStep("planConfirm");
+			advanceTutorial("[data-tour='device-write-confirm']");
+		} catch (reason) {
+			setError(errorFrom(reason));
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function applyPlan() {
+		const current = plan();
+		if (!current) {
+			return;
+		}
+		setStep("applying");
+		setError(undefined);
+		try {
+			const nextOutcome =
+				mode() === "demo"
+					? current.kind === "pin"
+						? demo()?.pinOutcome
+						: demoRestoreOutcome(current)
+					: current.kind === "pin"
+						? await executePinPlan(current.planId)
+						: await executeRestorePlan(current.planId);
+			if (nextOutcome) {
+				setOutcome(nextOutcome);
+				setStep("outcome");
+				advanceTutorial("[data-tour='change-outcome']");
+			}
+		} catch (reason) {
+			setError(errorFrom(reason));
+			setStep("planConfirm");
+		}
+	}
+
+	async function abandonPlan() {
+		const current = plan();
+		if (current && mode() === "real") {
+			try {
+				await discardChangePlan(current.planId);
+			} catch (reason) {
+				setError(errorFrom(reason));
+				return;
+			}
+		}
+		setPlan(undefined);
+		setStep("plan");
+	}
+
+	async function openSnapshots() {
+		setError(undefined);
+		try {
+			setSnapshots(
+				mode() === "demo" ? demo()?.snapshots : await listSnapshots(),
+			);
+			setStep("snapshots");
+			advanceTutorial("[data-tour='preview-restore']");
+		} catch (reason) {
+			setError(errorFrom(reason));
+		}
+	}
+
+	async function beginRestore(snapshot: SnapshotRecord) {
+		const device = selectedDevice();
+		if (!device) {
+			return;
+		}
+		setRiskConfirmed(false);
+		setAllowUnparsed(false);
+		setError(undefined);
+		try {
+			const next =
+				mode() === "demo"
+					? demoRestorePreview(snapshot)
+					: await prepareRestore(device.deviceId, snapshot.snapshotId);
+			setPreview(next);
+			setStep("plan");
+			advanceTutorial("[data-tour='risk-confirm']");
+		} catch (reason) {
+			setError(errorFrom(reason));
 		}
 	}
 
@@ -270,27 +615,43 @@ export function App() {
 	}
 
 	return (
-		<main class="app-shell">
-			<header class="app-header">
-				<div class="brand-lockup">
-					<img class="brand-mark" src="/app-icon.png" alt="" />
-					<div>
-						<strong>{text().product}</strong>
-						<span>{text().phase}</span>
-					</div>
+		<main class="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-5 text-fg sm:px-6 lg:px-8">
+			<header class="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+				<div class="flex min-w-0 items-center gap-3">
+					<img
+						class="size-10 rounded-l2 shadow-xs"
+						src="/app-icon.png"
+						alt=""
+					/>
+					<strong class="truncate text-base font-semibold">
+						{text().product}
+					</strong>
 				</div>
-				<div class="header-actions">
-					<button
-						class="button button-quiet"
+				<div class="flex flex-wrap items-center gap-3">
+					<Button
+						variant="plain"
+						size="sm"
 						type="button"
 						disabled={tutorialActive() || connectionError()}
 						onClick={() => void enterDemo(true)}
 					>
 						{text().startTutorial}
-					</button>
-					<label class="language-picker">
-						<span>{text().language}</span>
+					</Button>
+					<SegmentedControl
+						label={text().theme}
+						value={theme.preference()}
+						disabled={themeSaving()}
+						options={[
+							{ value: "system", label: text().themeSystem },
+							{ value: "light", label: text().themeLight },
+							{ value: "dark", label: text().themeDark },
+						]}
+						onChange={(value) => void chooseTheme(value)}
+					/>
+					<label class="flex items-center gap-2 text-xs font-medium text-fg-muted">
+						<span class="sr-only">{text().language}</span>
 						<select
+							class="min-h-9 rounded-l1 border border-border-strong bg-surface px-3 text-sm text-fg outline-none focus-visible:ring-3 focus-visible:ring-focus/35"
 							disabled={tutorialActive()}
 							value={i18n.locale()}
 							onInput={(event) =>
@@ -305,41 +666,35 @@ export function App() {
 			</header>
 
 			<Show when={mode() === "demo"}>
-				<div class="demo-banner" data-tour="demo-banner" role="status">
+				<Notice
+					tone="warning"
+					class="justify-between"
+					data-tour="demo-banner"
+					role="status"
+				>
 					<strong>{text().simulated}</strong>
-					<button class="button-link" type="button" onClick={leaveDemo}>
+					<Button variant="plain" size="xs" type="button" onClick={leaveDemo}>
 						{text().exitDemo}
-					</button>
-				</div>
+					</Button>
+				</Notice>
 			</Show>
 
 			<Show when={step() !== "welcome"}>
-				<nav class="stepper" aria-label={text().phase}>
-					<For each={steps()}>
-						{(item, index) => (
-							<div
-								class={`stepper-item ${stepIndex(step()) >= index() ? "is-active" : ""}`}
-							>
-								<span>{index() + 1}</span>
-								{item.label}
-							</div>
-						)}
-					</For>
-				</nav>
+				<ProgressSteps label={text().progressLabel} items={progress()} />
 			</Show>
 
 			<Show when={startup()?.preferenceWarning}>
-				<div class="notice notice-warning">
+				<Notice tone="warning">
 					<strong>{text().preferenceWarning}</strong>
 					<span>{startup()?.preferenceWarning?.message}</span>
-				</div>
+				</Notice>
 			</Show>
 
 			<Show when={error()}>
-				<div class="notice notice-error" role="alert">
+				<Notice tone="danger" role="alert">
 					<strong>{error()?.code}</strong>
 					<span>{error()?.message}</span>
-				</div>
+				</Notice>
 			</Show>
 
 			<Switch>
@@ -383,50 +738,126 @@ export function App() {
 						messages={text()}
 						device={selectedDevice()}
 						confirmed={confirmed()}
-						onConfirmed={setConfirmed}
+						onConfirmed={(value) => {
+							setConfirmed(value);
+							if (value) {
+								advanceTutorial("[data-tour='run-diagnosis']");
+							}
+						}}
 						onRun={() => void runDiagnosis()}
 						onBack={() => setStep("devices")}
 					/>
 				</Match>
 				<Match when={step() === "diagnosing"}>
-					<section class="workflow-panel centered-panel" aria-live="polite">
-						<div class="spinner" aria-hidden="true" />
-						<h1>{text().diagnosing}</h1>
-					</section>
+					<Panel
+						class="grid min-h-80 place-items-center text-center"
+						aria-live="polite"
+					>
+						<div
+							class="size-10 animate-spin rounded-full border-3 border-accent-subtle border-t-accent"
+							aria-hidden="true"
+						/>
+						<h1 class="text-2xl font-semibold">{text().diagnosing}</h1>
+					</Panel>
 				</Match>
 				<Match when={step() === "result" && report()}>
 					<ReportPanel
 						messages={text()}
 						report={report() as DiagnosisReport}
+						providers={providers()}
 						demo={mode() === "demo"}
+						onPin={(provider) => void beginPin(provider)}
+						onSnapshots={() => void openSnapshots()}
 						onRestart={() =>
 							mode() === "demo" ? leaveDemo() : void startReal()
 						}
 					/>
 				</Match>
+				<Match when={step() === "plan" && preview()}>
+					<PlanPreviewPanel
+						messages={text()}
+						preview={preview() as ChangePreview}
+						riskConfirmed={riskConfirmed()}
+						allowUnparsed={allowUnparsed()}
+						busy={busy()}
+						onRisk={(value) => {
+							setRiskConfirmed(value);
+							if (value) {
+								advanceTutorial("[data-tour='create-plan']");
+							}
+						}}
+						onAllowUnparsed={setAllowUnparsed}
+						onContinue={() => void confirmPreview()}
+						onBack={() =>
+							setStep(preview()?.kind === "restore" ? "snapshots" : "result")
+						}
+					/>
+				</Match>
+				<Match when={step() === "planConfirm" && plan()}>
+					<DeviceWriteConfirmation
+						messages={text()}
+						plan={plan() as ChangePlan}
+						onApply={() => void applyPlan()}
+						onBack={() => void abandonPlan()}
+					/>
+				</Match>
+				<Match when={step() === "applying"}>
+					<Panel
+						class="grid min-h-80 place-items-center text-center"
+						aria-live="polite"
+					>
+						<div
+							class="size-10 animate-spin rounded-full border-3 border-accent-subtle border-t-accent"
+							aria-hidden="true"
+						/>
+						<h1 class="text-2xl font-semibold">{text().applyingChange}</h1>
+					</Panel>
+				</Match>
+				<Match when={step() === "outcome" && outcome()}>
+					<OutcomePanel
+						messages={text()}
+						outcome={outcome() as ChangeOutcome}
+						onSnapshots={() => void openSnapshots()}
+						onDone={() => (mode() === "demo" ? leaveDemo() : setStep("result"))}
+					/>
+				</Match>
+				<Match when={step() === "snapshots" && snapshots()}>
+					<SnapshotsPanel
+						messages={text()}
+						inventory={snapshots() as SnapshotInventory}
+						onRestore={(snapshot) => void beginRestore(snapshot)}
+						onBack={() => setStep(outcome() ? "outcome" : "result")}
+					/>
+				</Match>
 			</Switch>
 
-			<footer>
-				<span>{text().readOnlyFooter}</span>
+			<footer class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-xs text-fg-muted">
+				<span class="max-w-3xl">{text().safetyFooter}</span>
 				<Show when={appInfo()}>
 					<code>{appInfo()?.version}</code>
 				</Show>
 			</footer>
 
 			<Show when={showOnboarding()}>
-				<div class="modal-backdrop" role="presentation">
+				<div
+					class="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
+					role="presentation"
+				>
 					<section
-						class="onboarding-dialog"
+						class="w-full max-w-lg rounded-l3 border border-border bg-panel p-6 shadow-md"
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="onboarding-title"
 					>
-						<span class="status-pill">{text().readOnly}</span>
-						<h2 id="onboarding-title">{text().onboardingTitle}</h2>
-						<p>{text().onboardingBody}</p>
-						<div class="button-row">
-							<button
-								class="button button-primary"
+						<h2 id="onboarding-title" class="text-xl font-semibold">
+							{text().onboardingTitle}
+						</h2>
+						<p class="mt-2 text-sm leading-6 text-fg-muted">
+							{text().onboardingBody}
+						</p>
+						<div class="mt-6 flex flex-wrap gap-3">
+							<Button
+								variant="solid"
 								type="button"
 								onClick={() => {
 									setShowOnboarding(false);
@@ -434,10 +865,10 @@ export function App() {
 								}}
 							>
 								{text().learnWithDemo}
-							</button>
-							<button class="button" type="button" onClick={skipOnboarding}>
+							</Button>
+							<Button type="button" onClick={skipOnboarding}>
 								{text().skipTutorial}
-							</button>
+							</Button>
 						</div>
 					</section>
 				</div>
@@ -455,51 +886,110 @@ function Welcome(props: {
 }) {
 	return (
 		<>
-			<section class="hero">
-				<p class="eyebrow">{props.messages.phase}</p>
-				<h1>{props.messages.welcomeTitle}</h1>
-				<p class="summary">{props.messages.welcomeBody}</p>
-				<div class="button-row hero-actions">
-					<button
-						class="button button-primary"
+			<section class="mx-auto w-full max-w-4xl py-12 sm:py-18">
+				<h1 class="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+					{props.messages.welcomeTitle}
+				</h1>
+				<p class="mt-4 max-w-3xl text-base leading-7 text-fg-muted">
+					{props.messages.welcomeBody}
+				</p>
+				<div class="mt-7 flex flex-wrap gap-3">
+					<Button
+						variant="solid"
+						size="lg"
 						type="button"
 						disabled={!props.connected}
 						onClick={props.onStart}
 					>
 						{props.messages.startDiagnosis}
-					</button>
-					<button
-						class="button"
+					</Button>
+					<Button
+						size="lg"
 						type="button"
 						disabled={!props.connected}
 						onClick={props.onDemo}
 					>
 						{props.messages.openDemo}
-					</button>
+					</Button>
 				</div>
-				<p class={`connection-copy ${props.connectionError ? "is-error" : ""}`}>
+				<p
+					class={cx(
+						"mt-5 text-sm font-medium",
+						props.connectionError
+							? "text-danger-strong"
+							: "text-success-strong",
+					)}
+				>
 					{props.connectionError
 						? props.messages.backendUnavailable
 						: props.connected
-							? "● Local core connected"
+							? props.messages.appReady
 							: props.messages.backendConnecting}
 				</p>
 			</section>
-			<section class="feature-grid">
-				<article class="feature-card">
-					<h2>{props.messages.localOnly}</h2>
-					<p>{props.messages.localOnlyBody}</p>
-				</article>
-				<article class="feature-card">
-					<h2>{props.messages.safetyTitle}</h2>
-					<p>{props.messages.safetyBody}</p>
-				</article>
+			<section class="grid gap-4 md:grid-cols-2">
+				<Card>
+					<h2 class="text-lg font-semibold">{props.messages.localOnly}</h2>
+					<p class="mt-2 text-sm leading-6 text-fg-muted">
+						{props.messages.localOnlyBody}
+					</p>
+				</Card>
+				<Card>
+					<h2 class="text-lg font-semibold">{props.messages.safetyTitle}</h2>
+					<p class="mt-2 text-sm leading-6 text-fg-muted">
+						{props.messages.safetyBody}
+					</p>
+				</Card>
 			</section>
 		</>
 	);
 }
 
-function AdbPanel(props: {
+export type AdbOption = {
+	key: string;
+	adb: ValidatedAdb;
+	candidate?: AdbCandidate;
+	source?: AdbCandidate["source"];
+	selected: boolean;
+};
+
+export function adbOptions(
+	discovery: AdbDiscovery | undefined,
+	selected: ValidatedAdb | undefined,
+): AdbOption[] {
+	const options: AdbOption[] = [];
+	const seen = new Set<string>();
+	let includesSelection = false;
+
+	for (const candidate of discovery?.candidates ?? []) {
+		const identity = candidate.adb.resolvedPath;
+		if (seen.has(identity)) {
+			continue;
+		}
+		seen.add(identity);
+		const isSelected = selected?.resolvedPath === identity;
+		includesSelection ||= isSelected;
+		options.push({
+			key: candidate.candidateId,
+			adb: isSelected && selected ? selected : candidate.adb,
+			candidate,
+			source: candidate.source,
+			selected: isSelected,
+		});
+	}
+
+	if (selected && !includesSelection) {
+		options.unshift({
+			key: `selected:${selected.resolvedPath}`,
+			adb: selected,
+			selected: true,
+		});
+	}
+
+	return options;
+}
+
+export function AdbPanel(props: {
 	messages: Messages;
 	busy: boolean;
 	discovery?: AdbDiscovery;
@@ -512,63 +1002,44 @@ function AdbPanel(props: {
 	onContinue: () => void;
 	onCopy: (value: string, key: string) => void;
 }) {
+	const options = () => adbOptions(props.discovery, props.selected);
 	return (
-		<section class="workflow-panel">
-			<div class="panel-heading">
-				<div>
-					<p class="eyebrow">01 · {props.messages.stepAdb}</p>
-					<h1>{props.messages.adbTitle}</h1>
-					<p>{props.messages.adbBody}</p>
+		<Panel>
+			<div class="flex flex-wrap items-start justify-between gap-4">
+				<div class="max-w-3xl">
+					<Badge tone="accent">{props.messages.stepAdb}</Badge>
+					<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+						{props.messages.adbTitle}
+					</h1>
+					<p class="mt-3 text-base leading-7 text-fg-muted">
+						{props.messages.adbBody}
+					</p>
 				</div>
 				<Show when={!props.demo}>
-					<div class="button-row">
-						<button
-							class="button"
+					<div class="flex flex-wrap gap-2">
+						<Button
 							type="button"
 							disabled={props.busy}
 							onClick={props.onDetect}
 						>
 							{props.messages.refreshAdb}
-						</button>
-						<button
-							class="button"
+						</Button>
+						<Button
 							type="button"
 							disabled={props.busy}
 							onClick={props.onChoose}
 						>
 							{props.messages.chooseAdb}
-						</button>
+						</Button>
 					</div>
 				</Show>
 			</div>
 			<Show when={props.busy}>
-				<p class="loading-copy">{props.messages.detectingAdb}</p>
+				<Notice class="mt-5">{props.messages.detectingAdb}</Notice>
 			</Show>
-			<Show when={props.selected}>
-				{(adb) => (
-					<article class="data-card selected-card" data-tour="adb-card">
-						<div class="card-title-row">
-							<strong>{props.messages.selected}</strong>
-							<span class="status-pill">{props.messages.readOnly}</span>
-						</div>
-						<DataRow label={props.messages.path} value={adb().path} />
-						<DataRow
-							label={props.messages.resolvedPath}
-							value={adb().resolvedPath}
-						/>
-						<DataRow label={props.messages.version} value={adb().version} />
-					</article>
-				)}
-			</Show>
-			<Show
-				when={
-					!props.demo &&
-					props.discovery &&
-					props.discovery.candidates.length === 0
-				}
-			>
-				<div class="empty-state">
-					<h2>{props.messages.adbNotFound}</h2>
+			<Show when={!props.demo && props.discovery && options().length === 0}>
+				<Notice tone="warning" class="mt-6 grid gap-3">
+					<strong>{props.messages.adbNotFound}</strong>
 					<p>{props.messages.adbInstall}</p>
 					<InstallCommand
 						command="brew install --cask android-platform-tools"
@@ -595,60 +1066,70 @@ function AdbPanel(props: {
 							)
 						}
 					/>
-				</div>
+				</Notice>
 			</Show>
-			<Show
-				when={
-					!props.demo &&
-					props.discovery &&
-					props.discovery.candidates.length > 0
-				}
-			>
-				<div class="card-list">
-					<For each={props.discovery?.candidates}>
-						{(candidate) => (
-							<article class="data-card">
+			<Show when={options().length > 0}>
+				<div class="mt-6 grid gap-3">
+					<For each={options()}>
+						{(option) => (
+							<Card
+								class={option.selected ? "border-accent-muted" : undefined}
+								data-tour={option.selected ? "adb-card" : undefined}
+							>
+								<Show when={option.selected}>
+									<div class="mb-4 flex items-center justify-between gap-3">
+										<Badge tone="accent">{props.messages.selected}</Badge>
+									</div>
+								</Show>
+								<DataRow label={props.messages.path} value={option.adb.path} />
 								<DataRow
-									label={props.messages.path}
-									value={candidate.adb.path}
+									label={props.messages.resolvedPath}
+									value={option.adb.resolvedPath}
 								/>
 								<DataRow
 									label={props.messages.version}
-									value={candidate.adb.version}
+									value={option.adb.version}
 								/>
-								<DataRow
-									label={props.messages.source}
-									value={candidate.source}
-								/>
-								<button
-									class="button button-small"
+								<Show when={option.source}>
+									{(source) => (
+										<DataRow
+											label={props.messages.source}
+											value={candidateSourceMessage(props.messages, source())}
+										/>
+									)}
+								</Show>
+								<Button
+									size="sm"
+									class="mt-4"
 									type="button"
-									disabled={
-										props.busy || candidate.adb.path === props.selected?.path
-									}
-									onClick={() => props.onSelect(candidate)}
+									disabled={props.busy || option.selected || !option.candidate}
+									onClick={() => {
+										if (option.candidate) {
+											props.onSelect(option.candidate);
+										}
+									}}
 								>
-									{candidate.adb.path === props.selected?.path
+									{option.selected
 										? props.messages.selected
 										: props.messages.useAdb}
-								</button>
-							</article>
+								</Button>
+							</Card>
 						)}
 					</For>
 				</div>
 			</Show>
-			<div class="panel-actions">
-				<button
-					class="button button-primary"
+			<div class="mt-6 flex justify-end">
+				<Button
+					variant="solid"
 					type="button"
 					data-tour="continue-adb"
 					disabled={!props.selected || props.busy}
 					onClick={props.onContinue}
 				>
 					{props.messages.continueDevices}
-				</button>
+				</Button>
 			</div>
-		</section>
+		</Panel>
 	);
 }
 
@@ -662,67 +1143,66 @@ function DevicePanel(props: {
 	onBack: () => void;
 }) {
 	return (
-		<section class="workflow-panel">
-			<div class="panel-heading">
-				<div>
-					<p class="eyebrow">02 · {props.messages.stepDevice}</p>
-					<h1>{props.messages.deviceTitle}</h1>
-					<p>{props.messages.deviceBody}</p>
+		<Panel>
+			<div class="flex flex-wrap items-start justify-between gap-4">
+				<div class="max-w-3xl">
+					<Badge tone="accent">{props.messages.stepDevice}</Badge>
+					<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+						{props.messages.deviceTitle}
+					</h1>
+					<p class="mt-3 text-base leading-7 text-fg-muted">
+						{props.messages.deviceBody}
+					</p>
 				</div>
 				<Show when={!props.demo}>
-					<button
-						class="button"
-						type="button"
-						disabled={props.busy}
-						onClick={props.onRefresh}
-					>
+					<Button type="button" disabled={props.busy} onClick={props.onRefresh}>
 						{props.messages.refreshDevices}
-					</button>
+					</Button>
 				</Show>
 			</div>
 			<Show when={props.busy}>
-				<p>{props.messages.loadingDevices}</p>
+				<Notice class="mt-5">{props.messages.loadingDevices}</Notice>
 			</Show>
 			<Show when={props.devices?.devices.length === 0}>
-				<div class="empty-state">{props.messages.noDevices}</div>
+				<Notice tone="warning" class="mt-5">
+					{props.messages.noDevices}
+				</Notice>
 			</Show>
-			<div class="card-list device-list">
+			<div class="mt-6 grid gap-3 md:grid-cols-2">
 				<For each={props.devices?.devices}>
 					{(device, index) => (
-						<article
-							class="data-card"
-							data-tour={index() === 0 ? "device-card" : undefined}
-						>
-							<div class="card-title-row">
+						<Card data-tour={index() === 0 ? "device-card" : undefined}>
+							<div class="mb-4 flex items-center justify-between gap-3">
 								<strong>{device.model ?? device.serial}</strong>
-								<span class={`device-state state-${device.state}`}>
-									{device.state}
-								</span>
+								<Badge tone={device.state === "device" ? "accent" : "warning"}>
+									{deviceStateMessage(props.messages, device.state)}
+								</Badge>
 							</div>
-							<DataRow label="Serial" value={device.serial} />
+							<DataRow label={props.messages.serial} value={device.serial} />
 							<DataRow
 								label={props.messages.connection}
-								value={device.connectionType}
+								value={connectionMessage(props.messages, device.connectionType)}
 							/>
-							<button
-								class="button button-small"
+							<Button
+								size="sm"
+								class="mt-4"
 								type="button"
 								data-tour={index() === 0 ? "select-device" : undefined}
 								disabled={device.state !== "device"}
 								onClick={() => props.onSelect(device)}
 							>
 								{props.messages.inspectThisDevice}
-							</button>
-						</article>
+							</Button>
+						</Card>
 					)}
 				</For>
 			</div>
-			<div class="panel-actions">
-				<button class="button" type="button" onClick={props.onBack}>
+			<div class="mt-6">
+				<Button type="button" onClick={props.onBack}>
 					{props.messages.back}
-				</button>
+				</Button>
 			</div>
-		</section>
+		</Panel>
 	);
 }
 
@@ -735,76 +1215,136 @@ function ConfirmationPanel(props: {
 	onBack: () => void;
 }) {
 	return (
-		<section class="workflow-panel" data-tour="confirmation">
-			<div class="panel-heading">
-				<div>
-					<p class="eyebrow">03 · {props.messages.stepConfirm}</p>
-					<h1>{props.messages.confirmTitle}</h1>
-					<p>{props.messages.confirmBody}</p>
-				</div>
+		<Panel data-tour="confirmation">
+			<div class="max-w-3xl">
+				<Badge tone="accent">{props.messages.stepConfirm}</Badge>
+				<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+					{props.messages.confirmTitle}
+				</h1>
+				<p class="mt-3 text-base leading-7 text-fg-muted">
+					{props.messages.confirmBody}
+				</p>
 			</div>
 			<Show when={props.device}>
 				{(device) => (
-					<article class="identity-card">
-						<strong>{device().model ?? device().serial}</strong>
-						<code>{device().serial}</code>
-						<span>{device().connectionType}</span>
-					</article>
+					<Card class="mt-6 grid gap-3 sm:grid-cols-2">
+						<DataRow
+							label={props.messages.model}
+							value={device().model ?? "—"}
+						/>
+						<DataRow label={props.messages.serial} value={device().serial} />
+						<DataRow
+							label={props.messages.connection}
+							value={connectionMessage(props.messages, device().connectionType)}
+						/>
+					</Card>
 				)}
 			</Show>
-			<label class="confirmation-check" data-tour="confirm-check">
-				<input
-					type="checkbox"
-					checked={props.confirmed}
-					onInput={(event) => props.onConfirmed(event.currentTarget.checked)}
-				/>
-				<span>{props.messages.confirmCheckbox}</span>
-			</label>
-			<div class="panel-actions split-actions">
-				<button class="button" type="button" onClick={props.onBack}>
+			<p class="mt-4 max-w-3xl text-sm leading-6 text-fg-muted">
+				{props.messages.diagnosisReadOnlyNote}
+			</p>
+			<Checkbox
+				class="mt-6"
+				data-tour="confirm-check"
+				checked={props.confirmed}
+				onInput={(event) => props.onConfirmed(event.currentTarget.checked)}
+			>
+				{props.messages.confirmCheckbox}
+			</Checkbox>
+			<div class="mt-6 flex flex-wrap justify-between gap-3">
+				<Button type="button" onClick={props.onBack}>
 					{props.messages.back}
-				</button>
-				<button
-					class="button button-primary"
+				</Button>
+				<Button
+					variant="solid"
 					type="button"
 					data-tour="run-diagnosis"
 					disabled={!props.confirmed}
 					onClick={props.onRun}
 				>
 					{props.messages.runDiagnosis}
-				</button>
+				</Button>
 			</div>
-		</section>
+		</Panel>
 	);
 }
 
-function ReportPanel(props: {
+function canonicalComponentName(component: ComponentName): string {
+	const serviceClass = component.serviceClass.startsWith(".")
+		? `${component.packageName}${component.serviceClass}`
+		: component.serviceClass;
+	return `${component.packageName}/${serviceClass}`;
+}
+
+function settingContainsOnlyProvider(
+	value: SettingValue,
+	target: ComponentName,
+): boolean {
+	return (
+		value.kind === "value" &&
+		value.components !== null &&
+		value.components.length === 1 &&
+		canonicalComponentName(value.components[0]) ===
+			canonicalComponentName(target)
+	);
+}
+
+export function isCurrentSoleProvider(
+	report: DiagnosisReport,
+	provider: ProviderChoice,
+): boolean {
+	return (
+		settingContainsOnlyProvider(
+			report.credentialState.enabled.value,
+			provider.component,
+		) &&
+		settingContainsOnlyProvider(
+			report.credentialState.primary.value,
+			provider.component,
+		)
+	);
+}
+
+export function ReportPanel(props: {
 	messages: Messages;
 	report: DiagnosisReport;
+	providers: ProviderChoice[];
 	demo: boolean;
+	onPin: (provider: ProviderChoice) => void;
+	onSnapshots: () => void;
 	onRestart: () => void;
 }) {
 	return (
-		<section class="workflow-panel report-panel" data-tour="diagnosis-result">
-			<div class="panel-heading">
-				<div>
-					<p class="eyebrow">04 · {props.messages.stepResult}</p>
-					<h1>{props.messages.resultTitle}</h1>
-					<p>{props.messages.resultCaution}</p>
+		<Panel data-tour="diagnosis-result">
+			<div class="flex flex-wrap items-start justify-between gap-4">
+				<div class="max-w-3xl">
+					<Badge tone="accent">{props.messages.stepResult}</Badge>
+					<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+						{props.messages.resultTitle}
+					</h1>
+					<p class="mt-3 text-base leading-7 text-fg-muted">
+						{props.messages.resultCaution}
+					</p>
 				</div>
-				<span class={`report-status status-${props.report.status}`}>
-					{props.report.status}
-				</span>
+				<Badge tone={props.report.status === "complete" ? "accent" : "warning"}>
+					{reportStatusMessage(props.messages, props.report.status)}
+				</Badge>
 			</div>
 			<Show when={props.report.status === "incomplete"}>
-				<div class="notice notice-warning">{props.messages.incomplete}</div>
+				<Notice tone="warning" class="mt-5">
+					{props.messages.incomplete}
+				</Notice>
 			</Show>
 			<Show when={props.report.status === "unsupported"}>
-				<div class="notice notice-warning">{props.messages.unsupported}</div>
+				<Notice tone="warning" class="mt-5">
+					{props.messages.unsupported}
+				</Notice>
 			</Show>
-			<section class="result-section">
-				<h2>{props.messages.deviceInformation}</h2>
-				<div class="facts-grid">
+			<Card class="mt-6">
+				<h2 class="text-lg font-semibold">
+					{props.messages.deviceInformation}
+				</h2>
+				<div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					<DataRow
 						label={props.messages.manufacturer}
 						value={props.report.device.manufacturer}
@@ -834,47 +1374,73 @@ function ReportPanel(props: {
 						}
 					/>
 				</div>
-				<p class="observed-at">
+				<p class="mt-4 text-xs text-fg-muted">
 					{props.messages.observed}:{" "}
 					{new Date(props.report.observedAtUnixMs).toLocaleString()}
 				</p>
-			</section>
-			<section class="result-section">
-				<h2>{props.messages.registeredProviders}</h2>
-				<Show when={props.report.providers.length === 0}>
-					<p>{props.messages.noProviders}</p>
+			</Card>
+			<section class="mt-6">
+				<h2 class="text-lg font-semibold">
+					{props.messages.registeredProviders}
+				</h2>
+				<Show when={props.providers.length === 0}>
+					<Notice class="mt-3">{props.messages.noProviders}</Notice>
 				</Show>
-				<div class="provider-list">
-					<For each={props.report.providers}>
-						{(provider) => (
-							<article class="provider-card">
-								<code>{provider.component.flattened}</code>
-								<span>{provider.component.packageName}</span>
-								<div class="provider-flags">
-									<Flag
-										label={props.messages.enabled}
-										active={provider.enabled}
-										messages={props.messages}
-									/>
-									<Flag
-										label={props.messages.primary}
-										active={provider.primary}
-										messages={props.messages}
-									/>
-									<Flag
-										label={props.messages.autofillPackage}
-										active={provider.samePackageAsAutofill}
-										messages={props.messages}
-									/>
-								</div>
-							</article>
-						)}
+				<div class="mt-3 grid gap-3">
+					<For each={props.providers}>
+						{(provider) => {
+							const currentSoleProvider = () =>
+								isCurrentSoleProvider(props.report, provider);
+							return (
+								<Card>
+									<Field label={props.messages.component}>
+										<CodeValue>{provider.component.flattened}</CodeValue>
+									</Field>
+									<p class="mt-2 text-sm text-fg-muted">
+										{provider.component.packageName}
+									</p>
+									<div class="mt-4 flex flex-wrap gap-2">
+										<Flag
+											label={props.messages.enabled}
+											active={provider.enabled}
+											messages={props.messages}
+										/>
+										<Flag
+											label={props.messages.primary}
+											active={provider.primary}
+											messages={props.messages}
+										/>
+										<Flag
+											label={props.messages.autofillPackage}
+											active={provider.samePackageAsAutofill}
+											messages={props.messages}
+										/>
+									</div>
+									<Button
+										size="sm"
+										variant={currentSoleProvider() ? "subtle" : "solid"}
+										class={cx(
+											"mt-4",
+											currentSoleProvider() && "disabled:opacity-100",
+										)}
+										type="button"
+										data-tour="select-provider"
+										disabled={currentSoleProvider()}
+										onClick={() => props.onPin(provider)}
+									>
+										{currentSoleProvider()
+											? props.messages.currentSoleProvider
+											: props.messages.previewPin}
+									</Button>
+								</Card>
+							);
+						}}
 					</For>
 				</div>
 			</section>
-			<section class="result-section">
-				<h2>{props.messages.credentialState}</h2>
-				<div class="setting-table">
+			<section class="mt-6">
+				<h2 class="text-lg font-semibold">{props.messages.credentialState}</h2>
+				<div class="mt-3 grid gap-3">
 					<For
 						each={[
 							props.report.credentialState.enabled,
@@ -888,53 +1454,343 @@ function ReportPanel(props: {
 					</For>
 				</div>
 			</section>
-			<section class="result-section">
-				<h2>{props.messages.findingsTitle}</h2>
-				<div class="finding-list">
+			<section class="mt-6">
+				<h2 class="text-lg font-semibold">{props.messages.findingsTitle}</h2>
+				<div class="mt-3 grid gap-3">
 					<For each={props.report.findings}>
 						{(finding) => (
-							<article class={`finding finding-${finding.severity}`}>
-								<strong>
-									{finding.severity === "warning"
-										? props.messages.warning
-										: props.messages.info}
-								</strong>
-								<p>{findingMessage(props.messages, finding.code)}</p>
-								<Show when={finding.relatedValue}>
-									<code>{finding.relatedValue}</code>
-								</Show>
-							</article>
+							<Notice
+								tone={finding.severity === "warning" ? "warning" : "info"}
+							>
+								<div class="grid gap-1">
+									<strong>
+										{finding.severity === "warning"
+											? props.messages.warning
+											: props.messages.info}
+									</strong>
+									<p>{findingMessage(props.messages, finding.code)}</p>
+									<Show when={finding.relatedValue}>
+										<CodeValue>{finding.relatedValue}</CodeValue>
+									</Show>
+								</div>
+							</Notice>
 						)}
 					</For>
 				</div>
 			</section>
-			<div class="panel-actions">
-				<button
-					class="button button-primary"
-					type="button"
-					onClick={props.onRestart}
-				>
+			<div class="mt-6 flex flex-wrap justify-between gap-3">
+				<Button type="button" onClick={props.onSnapshots}>
+					{props.messages.snapshots}
+				</Button>
+				<Button variant="solid" type="button" onClick={props.onRestart}>
 					{props.demo ? props.messages.exitDemo : props.messages.startOver}
-				</button>
+				</Button>
 			</div>
-		</section>
+		</Panel>
+	);
+}
+
+function PlanPreviewPanel(props: {
+	messages: Messages;
+	preview: ChangePreview;
+	riskConfirmed: boolean;
+	allowUnparsed: boolean;
+	busy: boolean;
+	onRisk: (value: boolean) => void;
+	onAllowUnparsed: (value: boolean) => void;
+	onContinue: () => void;
+	onBack: () => void;
+}) {
+	const onlyUnparsedBlocker = () =>
+		props.preview.blockers.every(
+			(blocker) => blocker === "UNPARSED_CONFIRMATION_REQUIRED",
+		);
+	const onlyNoChangeBlocker = () =>
+		props.preview.blockers.length === 1 &&
+		props.preview.blockers[0] === "NO_CHANGE_REQUIRED";
+	return (
+		<Panel data-tour="plan-preview">
+			<Badge tone="accent">{props.messages.changePlan}</Badge>
+			<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+				{props.preview.kind === "pin"
+					? props.messages.pinPreviewTitle
+					: props.messages.restorePreviewTitle}
+			</h1>
+			<Notice tone="warning" class="mt-5">
+				{props.messages.exclusiveWarning}
+			</Notice>
+			<div class="mt-6 grid gap-4" data-change-sections>
+				<ChangeRow
+					label="credential_service"
+					before={managedText(props.preview.before.enabled, props.messages)}
+					after={managedText(props.preview.after.enabled, props.messages)}
+					messages={props.messages}
+				/>
+				<ChangeRow
+					label="credential_service_primary"
+					before={managedText(props.preview.before.primary, props.messages)}
+					after={managedText(props.preview.after.primary, props.messages)}
+					messages={props.messages}
+				/>
+			</div>
+			<Show when={props.preview.blockers.length > 0}>
+				<Notice
+					tone={onlyNoChangeBlocker() ? "info" : "danger"}
+					class="mt-5 grid gap-2"
+				>
+					<strong>
+						{onlyNoChangeBlocker()
+							? props.messages.noChangeTitle
+							: props.messages.planBlocked}
+					</strong>
+					<ul class="list-disc pl-5">
+						<For each={props.preview.blockers}>
+							{(blocker) => <li>{blockerMessage(props.messages, blocker)}</li>}
+						</For>
+					</ul>
+				</Notice>
+			</Show>
+			<Show when={props.preview.requiresUnparsedConfirmation}>
+				<Checkbox
+					class="mt-5"
+					tone="danger"
+					checked={props.allowUnparsed}
+					onInput={(event) =>
+						props.onAllowUnparsed(event.currentTarget.checked)
+					}
+				>
+					{props.messages.allowUnparsed}
+				</Checkbox>
+			</Show>
+			<Checkbox
+				class="mt-5"
+				data-tour="risk-confirm"
+				checked={props.riskConfirmed}
+				onInput={(event) => props.onRisk(event.currentTarget.checked)}
+			>
+				{props.messages.confirmChangeRisk}
+			</Checkbox>
+			<div class="mt-6 flex flex-wrap justify-between gap-3">
+				<Button type="button" onClick={props.onBack}>
+					{props.messages.back}
+				</Button>
+				<Button
+					variant="solid"
+					type="button"
+					data-tour="create-plan"
+					disabled={
+						props.busy ||
+						!props.riskConfirmed ||
+						(props.preview.requiresUnparsedConfirmation &&
+							!props.allowUnparsed) ||
+						(props.preview.blockers.length > 0 && !onlyUnparsedBlocker())
+					}
+					onClick={props.onContinue}
+				>
+					{props.messages.createPlan}
+				</Button>
+			</div>
+		</Panel>
+	);
+}
+
+export function ChangeRow(props: {
+	label: string;
+	before: string;
+	after: string;
+	messages: Messages;
+}) {
+	return (
+		<Card class="grid gap-4" data-setting-section={props.label}>
+			<h2 class="font-mono text-base font-semibold [overflow-wrap:anywhere]">
+				{props.label}
+			</h2>
+			<Field label={props.messages.before}>
+				<CodeValue data-change-value="before">{props.before}</CodeValue>
+			</Field>
+			<Field label={props.messages.after}>
+				<CodeValue data-change-value="after">{props.after}</CodeValue>
+			</Field>
+		</Card>
+	);
+}
+
+function DeviceWriteConfirmation(props: {
+	messages: Messages;
+	plan: ChangePlan;
+	onApply: () => void;
+	onBack: () => void;
+}) {
+	return (
+		<Panel data-tour="device-write-confirm">
+			<Badge tone="warning">{props.messages.finalConfirmation}</Badge>
+			<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+				{props.messages.confirmDeviceWrite}
+			</h1>
+			<div class="mt-6 grid gap-4 sm:grid-cols-2">
+				<DataRow label={props.messages.model} value={props.plan.device.model} />
+				<DataRow
+					label={props.messages.serial}
+					value={props.plan.device.serial}
+				/>
+				<DataRow
+					label={props.messages.foregroundUser}
+					value={String(props.plan.androidUser.id)}
+				/>
+				<DataRow
+					label={props.messages.component}
+					value={props.plan.target.flattened}
+				/>
+			</div>
+			<Notice tone="warning" class="mt-5">
+				{props.messages.expiresAt}:{" "}
+				{new Date(props.plan.expiresAtUnixMs).toLocaleTimeString()}
+			</Notice>
+			<div class="mt-6 flex flex-wrap justify-between gap-3">
+				<Button type="button" onClick={props.onBack}>
+					{props.messages.back}
+				</Button>
+				<Button
+					tone="danger"
+					variant="solid"
+					type="button"
+					data-tour="apply-change"
+					onClick={props.onApply}
+				>
+					{props.plan.kind === "pin"
+						? props.messages.applyPin
+						: props.messages.applyRestore}
+				</Button>
+			</div>
+		</Panel>
+	);
+}
+
+function OutcomePanel(props: {
+	messages: Messages;
+	outcome: ChangeOutcome;
+	onSnapshots: () => void;
+	onDone: () => void;
+}) {
+	return (
+		<Panel data-tour="change-outcome">
+			<Badge
+				tone={props.outcome.status === "recoveryFailed" ? "danger" : "accent"}
+			>
+				{props.messages.changeOutcome}
+			</Badge>
+			<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+				{props.messages.outcomeStatus}:{" "}
+				{outcomeStatusMessage(props.messages, props.outcome.status)}
+			</h1>
+			<div class="mt-6">
+				<DataRow
+					label={props.messages.snapshotId}
+					value={props.outcome.snapshotId}
+				/>
+			</div>
+			<div class="mt-5 grid gap-3">
+				<For each={[...props.outcome.steps, ...props.outcome.recoverySteps]}>
+					{(step) => (
+						<Card class="flex flex-wrap items-center justify-between gap-3">
+							<code class="[overflow-wrap:anywhere]">{step.key}</code>
+							<Badge tone={step.success ? "accent" : "danger"}>
+								{step.success ? props.messages.verified : step.error}
+							</Badge>
+						</Card>
+					)}
+				</For>
+			</div>
+			<div class="mt-6 flex flex-wrap justify-between gap-3">
+				<Button
+					type="button"
+					data-tour="open-snapshots"
+					onClick={props.onSnapshots}
+				>
+					{props.messages.snapshots}
+				</Button>
+				<Button variant="solid" type="button" onClick={props.onDone}>
+					{props.messages.done}
+				</Button>
+			</div>
+		</Panel>
+	);
+}
+
+function SnapshotsPanel(props: {
+	messages: Messages;
+	inventory: SnapshotInventory;
+	onRestore: (snapshot: SnapshotRecord) => void;
+	onBack: () => void;
+}) {
+	return (
+		<Panel>
+			<Badge tone="accent">{props.messages.snapshots}</Badge>
+			<h1 class="mt-3 text-3xl font-semibold tracking-tight">
+				{props.messages.snapshotHistory}
+			</h1>
+			<Show when={props.inventory.snapshots.length === 0}>
+				<Notice class="mt-5">{props.messages.noSnapshots}</Notice>
+			</Show>
+			<div class="mt-6 grid gap-3">
+				<For each={props.inventory.snapshots}>
+					{(snapshot) => (
+						<Card>
+							<CodeValue>{snapshot.snapshotId}</CodeValue>
+							<p class="mt-3 text-sm text-fg-muted">
+								{snapshot.device.model} · {snapshot.device.serial}
+							</p>
+							<Badge
+								class="mt-3"
+								tone={
+									snapshot.status === "applied"
+										? "accent"
+										: snapshot.status === "recoveryFailed"
+											? "danger"
+											: "neutral"
+								}
+							>
+								{snapshotStatusMessage(props.messages, snapshot.status)}
+							</Badge>
+							<Button
+								size="sm"
+								class="mt-4"
+								type="button"
+								data-tour="preview-restore"
+								disabled={snapshot.status !== "applied"}
+								onClick={() => props.onRestore(snapshot)}
+							>
+								{props.messages.previewRestore}
+							</Button>
+						</Card>
+					)}
+				</For>
+			</div>
+			<div class="mt-6">
+				<Button type="button" onClick={props.onBack}>
+					{props.messages.back}
+				</Button>
+			</div>
+		</Panel>
 	);
 }
 
 function DataRow(props: { label: string; value: string }) {
 	return (
-		<div class="data-row">
-			<span>{props.label}</span>
-			<code>{props.value}</code>
+		<div class="grid min-w-0 gap-1 border-b border-border py-2 last:border-b-0">
+			<span class="text-xs font-medium text-fg-muted">{props.label}</span>
+			<code class="select-text text-sm [overflow-wrap:anywhere]">
+				{props.value}
+			</code>
 		</div>
 	);
 }
 
 function Flag(props: { label: string; active: boolean; messages: Messages }) {
 	return (
-		<span class={`flag ${props.active ? "is-active" : ""}`}>
+		<Badge tone={props.active ? "accent" : "neutral"}>
 			{props.label}: {props.active ? props.messages.yes : props.messages.no}
-		</span>
+		</Badge>
 	);
 }
 
@@ -943,10 +1799,14 @@ function SettingRow(props: {
 	messages: Messages;
 }) {
 	return (
-		<div class="setting-row">
-			<code>{props.observation.key}</code>
-			<span>{settingValue(props.observation.value, props.messages)}</span>
-		</div>
+		<Card class="grid gap-2">
+			<code class="font-semibold [overflow-wrap:anywhere]">
+				{props.observation.key}
+			</code>
+			<CodeValue>
+				{settingValue(props.observation.value, props.messages)}
+			</CodeValue>
+		</Card>
 	);
 }
 
@@ -956,11 +1816,13 @@ function InstallCommand(props: {
 	onCopy: () => void;
 }) {
 	return (
-		<div class="install-command">
-			<code>{props.command}</code>
-			<button class="button-link" type="button" onClick={props.onCopy}>
+		<div class="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-l1 bg-code p-2 pl-3">
+			<code class="min-w-0 select-text text-xs [overflow-wrap:anywhere]">
+				{props.command}
+			</code>
+			<Button variant="plain" size="xs" type="button" onClick={props.onCopy}>
 				{props.copyLabel}
-			</button>
+			</Button>
 		</div>
 	);
 }
@@ -976,6 +1838,78 @@ function settingValue(value: SettingValue, messages: Messages): string {
 		case "unavailable":
 			return `${messages.unavailable}: ${value.message}`;
 	}
+}
+
+function managedText(
+	value: import("../lib/tauri").ManagedSettingValue,
+	messages: Messages,
+): string {
+	switch (value.kind) {
+		case "missing":
+			return messages.missing;
+		case "empty":
+			return messages.empty;
+		case "value":
+			return value.raw;
+	}
+}
+
+function demoPlan(preview: ChangePreview): ChangePlan {
+	const now = Date.now();
+	return {
+		schemaVersion: 1,
+		planId: `demo-plan-${preview.kind}`,
+		snapshotId: `demo-snapshot-${preview.kind}`,
+		sourceSnapshotId: preview.sourceSnapshotId,
+		createdAtUnixMs: now,
+		expiresAtUnixMs: now + 300_000,
+		kind: preview.kind,
+		device: preview.device,
+		androidUser: preview.androidUser,
+		target: preview.target,
+		before: preview.before,
+		after: preview.after,
+	};
+}
+
+function demoRestorePreview(snapshot: SnapshotRecord): ChangePreview {
+	return {
+		schemaVersion: 1,
+		previewId: "demo-preview-restore",
+		sourceSnapshotId: snapshot.snapshotId,
+		kind: "restore",
+		createdAtUnixMs: Date.now(),
+		adb: snapshot.adb ?? {
+			path: "<demo>/adb",
+			resolvedPath: "<demo>/adb",
+			version: "simulated",
+		},
+		device: snapshot.device,
+		androidUser: snapshot.androidUser,
+		target: snapshot.target,
+		registeredProviders: [],
+		before: snapshot.lastObserved ?? snapshot.intendedAfter,
+		after: snapshot.before,
+		requiresUnparsedConfirmation: false,
+		allowUnparsed: true,
+		blockers: [],
+	};
+}
+
+function demoRestoreOutcome(plan: ChangePlan): ChangeOutcome {
+	return {
+		schemaVersion: 1,
+		planId: plan.planId,
+		snapshotId: plan.snapshotId,
+		status: "restored",
+		completedAtUnixMs: Date.now(),
+		steps: [
+			{ key: "credential_service_primary", success: true, error: null },
+			{ key: "credential_service", success: true, error: null },
+		],
+		recoverySteps: [],
+		observed: plan.after,
+	};
 }
 
 function findingMessage(messages: Messages, code: string): string {
@@ -997,7 +1931,31 @@ function errorFrom(reason: unknown): ErrorEnvelope {
 	};
 }
 
-function stepIndex(step: WorkflowStep): number {
+export function progressItems(
+	step: WorkflowStep,
+	restore: boolean,
+	messages: Messages,
+): ProgressItem[] {
+	const current = progressIndex(step);
+	const labels = [
+		messages.progressConnect,
+		messages.progressDevice,
+		messages.progressDiagnosis,
+		restore ? messages.progressRestore : messages.progressChange,
+		messages.progressComplete,
+	];
+	return labels.map((label, index) => ({
+		label,
+		state:
+			index < current
+				? "completed"
+				: index === current
+					? "current"
+					: "upcoming",
+	}));
+}
+
+function progressIndex(step: WorkflowStep): number {
 	switch (step) {
 		case "welcome":
 		case "adb":
@@ -1006,8 +1964,63 @@ function stepIndex(step: WorkflowStep): number {
 			return 1;
 		case "confirm":
 		case "diagnosing":
-			return 2;
 		case "result":
+			return 2;
+		case "plan":
+		case "planConfirm":
+		case "applying":
+		case "snapshots":
 			return 3;
+		case "outcome":
+			return 4;
 	}
+}
+
+function reportStatusMessage(
+	messages: Messages,
+	status: DiagnosisReport["status"],
+): string {
+	return messages.reportStatuses[status];
+}
+
+function deviceStateMessage(
+	messages: Messages,
+	state: DeviceChoice["state"],
+): string {
+	return messages.deviceStates[state];
+}
+
+function connectionMessage(
+	messages: Messages,
+	type: DeviceChoice["connectionType"],
+): string {
+	return messages.connectionTypes[type];
+}
+
+function candidateSourceMessage(
+	messages: Messages,
+	source: AdbCandidate["source"],
+): string {
+	return messages.candidateSources[source];
+}
+
+function snapshotStatusMessage(
+	messages: Messages,
+	status: SnapshotRecord["status"],
+): string {
+	return messages.snapshotStatuses[status];
+}
+
+function outcomeStatusMessage(
+	messages: Messages,
+	status: ChangeOutcome["status"],
+): string {
+	return messages.outcomeStatuses[status];
+}
+
+export function blockerMessage(
+	messages: Messages,
+	blocker: ChangeBlocker,
+): string {
+	return messages.changeBlockers[blocker];
 }

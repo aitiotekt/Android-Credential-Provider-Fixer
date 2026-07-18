@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-`0.1.0-alpha.2` 只执行 Phase 1 文档列明的 ADB 读取，不能修改 Android setting。在快照、计划、验证和恢复设计完成并经过测试前，涉及设备修改的功能不在当前范围内。
+`0.1.0-alpha.3` 只允许文档列明的读取，以及对 `credential_service` 和 `credential_service_primary` 的有限写入。写入要求当前枚举的设备/provider、五分钟一次性 plan、原子快照、精确状态复核、回读验证和自动恢复；`autofill_service` 始终只读。
 
 ## 安全边界
 

@@ -26,6 +26,20 @@ pub enum ErrorCode {
     OutputInvalid,
     PreferencesReadFailed,
     PreferencesWriteFailed,
+    ChangeDiagnosisUnavailable,
+    ChangeTargetNotRegistered,
+    ChangeSettingUnavailable,
+    ChangeSettingInvalid,
+    ChangeConfirmationRequired,
+    ChangeNoOp,
+    ChangePreviewBlocked,
+    ChangePlanExpired,
+    ChangePlanUnavailable,
+    ChangeStateChanged,
+    SnapshotNotRestorable,
+    SnapshotNotFound,
+    SnapshotStorageFailed,
+    SnapshotInvalid,
 }
 
 impl ErrorCode {
@@ -54,6 +68,20 @@ impl ErrorCode {
             Self::OutputInvalid => "OUTPUT_INVALID",
             Self::PreferencesReadFailed => "PREFERENCES_READ_FAILED",
             Self::PreferencesWriteFailed => "PREFERENCES_WRITE_FAILED",
+            Self::ChangeDiagnosisUnavailable => "CHANGE_DIAGNOSIS_UNAVAILABLE",
+            Self::ChangeTargetNotRegistered => "CHANGE_TARGET_NOT_REGISTERED",
+            Self::ChangeSettingUnavailable => "CHANGE_SETTING_UNAVAILABLE",
+            Self::ChangeSettingInvalid => "CHANGE_SETTING_INVALID",
+            Self::ChangeConfirmationRequired => "CHANGE_CONFIRMATION_REQUIRED",
+            Self::ChangeNoOp => "CHANGE_NO_OP",
+            Self::ChangePreviewBlocked => "CHANGE_PREVIEW_BLOCKED",
+            Self::ChangePlanExpired => "CHANGE_PLAN_EXPIRED",
+            Self::ChangePlanUnavailable => "CHANGE_PLAN_UNAVAILABLE",
+            Self::ChangeStateChanged => "CHANGE_STATE_CHANGED",
+            Self::SnapshotNotRestorable => "SNAPSHOT_NOT_RESTORABLE",
+            Self::SnapshotNotFound => "SNAPSHOT_NOT_FOUND",
+            Self::SnapshotStorageFailed => "SNAPSHOT_STORAGE_FAILED",
+            Self::SnapshotInvalid => "SNAPSHOT_INVALID",
         }
     }
 }
@@ -109,6 +137,15 @@ impl From<&CommandError> for ErrorEnvelope {
 
 impl From<&crate::DiagnosticError> for ErrorEnvelope {
     fn from(error: &crate::DiagnosticError) -> Self {
+        Self {
+            code: error.code().as_str().to_owned(),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<&crate::ChangeError> for ErrorEnvelope {
+    fn from(error: &crate::ChangeError) -> Self {
         Self {
             code: error.code().as_str().to_owned(),
             message: error.to_string(),

@@ -17,6 +17,7 @@ tauri-build.workspace = true
 
 [dependencies]
 acp-fixer-core.workspace = true
+acp-fixer-storage.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -24,3 +25,4 @@ tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 tauri-plugin-shell.workspace = true
 tokio.workspace = true
+uuid.workspace = true

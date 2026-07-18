@@ -29,6 +29,17 @@
 	"javascript": {
 		"formatter": { "quoteStyle": "double" }
 	},
+	"css": {
+		"parser": { "tailwindDirectives": true }
+	},
+	"overrides": [
+		{
+			"includes": ["apps/tauri-app/src/styles.css"],
+			"linter": {
+				"rules": { "complexity": { "noImportantStyles": "off" } }
+			}
+		}
+	],
 	"assist": {
 		"enabled": true,
 		"actions": { "source": { "organizeImports": "on" } }

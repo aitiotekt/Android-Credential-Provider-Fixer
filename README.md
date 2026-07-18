@@ -3,19 +3,22 @@
 Android Credential Provider Fixer is an independent, local-first desktop and command-line project for diagnosing and safely repairing mismatches between Android's visible Credential Provider settings and the framework state used by Credential Manager.
 
 > [!IMPORTANT]
-> The current `0.1.0-alpha.2` build implements Phase 1 read-only diagnosis. It can validate a user-installed ADB, inspect an explicitly selected Android device, and explain Credential Provider state. It cannot modify a device.
+> Version `0.1.0-alpha.3` adds a narrowly bounded Exclusive Provider Pin and guarded Restore. Both require an explicit target, before/after review, an atomic local snapshot, two GUI confirmations (or CLI `--apply`), a fresh state check, and per-field read-back verification.
 
 ## Why this project exists
 
-On some Android 14+ devices, an OEM settings screen can show a password manager as preferred while the provider is absent from the enabled Credential Manager state. Phase 1 makes that mismatch visible. Later phases will create an explicit change plan, preserve the original state, verify every write, and offer recovery.
+On some Android 14+ devices, an OEM settings screen can show a password manager as preferred while the provider is absent from the enabled Credential Manager state. The application makes that mismatch visible and can apply an explicitly confirmed Exclusive Provider Pin through a short-lived plan, preserving the original state and verifying every bounded write so it can recover or restore safely.
 
 The first validated investigation involved Bitwarden on Xiaomi HyperOS. The evidence points to a state synchronization problem; it does not establish a general defect in Bitwarden, Android, or every Xiaomi device.
+
+The only writable values are `credential_service` and `credential_service_primary` for the explicitly selected foreground Android user. `autofill_service` is never modified. CLI `pin` and `restore` are dry-runs unless `--apply` is present.
 
 ## Repository layout
 
 | Path | Responsibility |
 | --- | --- |
 | `packages/core` | Platform-independent DTOs, errors, ports, and application orchestration |
+| `packages/storage` | Shared atomic local snapshot adapter for GUI and CLI |
 | `apps/tauri-app` | SolidJS 2 and Tauri 2 desktop application |
 | `apps/cli` | `acp-fixer` command-line application |
 | `docs` | English and Chinese project documentation |
@@ -38,16 +41,21 @@ just dev
 just dev-cli --help
 just dev-cli devices --no-interactive
 just dev-cli diagnose --device SERIAL --no-interactive
+just dev-cli pin --device SERIAL --provider COMPONENT --no-interactive
+just dev-cli snapshots --json
+just dev-cli restore --snapshot ID --device SERIAL --no-interactive
 just dev-cli demo --json
 ```
 
-The desktop build exposes only narrow discovery, selection, inspection, onboarding, and Demo IPC commands. The frontend cannot submit executable paths, serials, user IDs, or command arguments, and it has no shell, dialog, or filesystem plugin permission.
+The desktop build exposes only narrow discovery, inspection, opaque plan/snapshot, onboarding, and Demo IPC commands. The frontend cannot submit executable paths, raw components, serials, user IDs, setting keys, or command arguments, and it has no shell, dialog, or filesystem plugin permission.
+
+The desktop interface uses Tailwind CSS 4 with local Solid component primitives and semantic Slate/Teal tokens. Its System, Light, and Dark appearance preference is stored in the application-private preferences file; System follows the operating-system color scheme without using `localStorage`. The current macOS deployment target is 13.3 or newer.
 
 Icon sources are platform-aware: `assets/icons/app-icon.png` feeds the generic assets and the macOS 26 Icon Composer artwork, while `assets/icons/app-icon-macos-legacy.png` uses the legacy macOS safe zone for the `icon.icns` shown by `tauri dev` and older systems. Run `just sync-icons` after changing either master.
 
-## Planned safety model
+## Change safety model
 
-The repair mode will be an explicit **Exclusive Provider Pin**: the selected registered provider becomes both the enabled and primary Credential Provider. Other fallback providers may disappear until the saved configuration is restored. Before this feature is enabled, the project must implement device/user confirmation, a one-use plan, an atomic snapshot, state-change detection, read-back verification, and automatic recovery.
+The repair mode is an explicit **Exclusive Provider Pin**: the selected registered provider becomes both the enabled and primary Credential Provider. Other fallback providers may disappear until the saved configuration is restored. Plans expire after five minutes and are one-use. Execution aborts on serial, user, provider-set, or setting-state drift; partial failure triggers reverse-order recovery.
 
 The project will never provide an arbitrary ADB terminal, modify `autofill_service`, read vault contents, delete passkeys, silently install ADB, or upload diagnostics.
 

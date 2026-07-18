@@ -3,9 +3,11 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AndroidUser, ComponentName, ConnectionType, CredentialState, DeviceConnectionState, DeviceInfo,
-    DeviceList, DeviceSummary, DiagnosisMode, DiagnosisReport, DiagnosisStatus, Finding,
-    FindingCode, FindingSeverity, ProviderService, SettingObservation, SettingValue, ValidatedAdb,
+    AndroidUser, ChangeOutcome, ChangeOutcomeStatus, ChangePreview, ChangeStepOutcome,
+    ComponentName, ConnectionType, CredentialState, DeviceConnectionState, DeviceInfo, DeviceList,
+    DeviceSummary, DiagnosisMode, DiagnosisReport, DiagnosisStatus, Finding, FindingCode,
+    FindingSeverity, ProviderService, SettingMutation, SettingObservation, SettingValue,
+    SnapshotInventory, SnapshotStatus, ValidatedAdb, create_change_plan, prepare_pin,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -16,6 +18,9 @@ pub struct DemoFixture {
     pub adb: ValidatedAdb,
     pub devices: DeviceList,
     pub report: DiagnosisReport,
+    pub pin_preview: ChangePreview,
+    pub pin_outcome: ChangeOutcome,
+    pub snapshots: SnapshotInventory,
 }
 
 #[must_use]
@@ -105,6 +110,37 @@ pub fn demo_fixture() -> DemoFixture {
             },
         ],
     };
+    let pin_preview = prepare_pin(
+        &report,
+        &bitwarden_provider,
+        false,
+        "demo-preview-pin".to_owned(),
+        OBSERVED_AT,
+    )
+    .expect("demo pin preview");
+    let (plan, mut snapshot) = create_change_plan(
+        &pin_preview,
+        "demo-plan-pin".to_owned(),
+        "demo-snapshot-pin".to_owned(),
+        OBSERVED_AT,
+    )
+    .expect("demo pin plan");
+    snapshot.status = SnapshotStatus::Applied;
+    snapshot.revision = 2;
+    snapshot.last_observed = Some(plan.after.clone());
+    let pin_outcome = ChangeOutcome {
+        schema_version: 1,
+        plan_id: plan.plan_id,
+        snapshot_id: plan.snapshot_id,
+        status: ChangeOutcomeStatus::Applied,
+        completed_at_unix_ms: OBSERVED_AT + 1_000,
+        steps: vec![
+            demo_step("credential_service"),
+            demo_step("credential_service_primary"),
+        ],
+        recovery_steps: Vec::new(),
+        observed: plan.after,
+    };
     DemoFixture {
         schema_version: 1,
         simulated: true,
@@ -123,6 +159,23 @@ pub fn demo_fixture() -> DemoFixture {
             }],
         },
         report,
+        pin_preview,
+        pin_outcome,
+        snapshots: SnapshotInventory {
+            schema_version: 1,
+            snapshots: vec![snapshot],
+            warnings: Vec::new(),
+        },
+    }
+}
+
+fn demo_step(key: &str) -> ChangeStepOutcome {
+    ChangeStepOutcome {
+        key: key.to_owned(),
+        mutation: SettingMutation::Put,
+        success: true,
+        observed: None,
+        error: None,
     }
 }
 
