@@ -1,5 +1,5 @@
-import { createMemo, createSignal } from "solid-js";
-import { type Locale, translations } from "./translations";
+import { type Accessor, createMemo, createSignal, type Setter } from "solid-js";
+import { type Locale, type Messages, translations } from "./translations";
 
 const STORAGE_KEY = "acp-fixer.locale";
 
@@ -13,25 +13,24 @@ export function resolveLocale(
 	return systemLocale.toLowerCase().startsWith("zh") ? "zh" : "en";
 }
 
-export function createLocaleController() {
-	const initialLocale = resolveLocale(
-		window.localStorage.getItem(STORAGE_KEY),
-		navigator.language,
-	);
-	const [locale, setLocaleSignal] = createSignal<Locale>(initialLocale);
-	const messages = createMemo(() => translations[locale()]);
+export class LocaleController {
+	readonly locale: Accessor<Locale>;
+	readonly messages: Accessor<Messages>;
+	private readonly setLocaleState: Setter<Locale>;
 
-	const setLocale = (nextLocale: Locale) => {
+	constructor() {
+		const initialLocale = resolveLocale(
+			window.localStorage.getItem(STORAGE_KEY),
+			navigator.language,
+		);
+		[this.locale, this.setLocaleState] = createSignal<Locale>(initialLocale);
+		this.messages = createMemo(() => translations[this.locale()]);
+		document.documentElement.lang = initialLocale;
+	}
+
+	setLocale(nextLocale: Locale): void {
 		window.localStorage.setItem(STORAGE_KEY, nextLocale);
 		document.documentElement.lang = nextLocale;
-		setLocaleSignal(nextLocale);
-	};
-
-	document.documentElement.lang = initialLocale;
-
-	return {
-		locale,
-		messages,
-		setLocale,
-	};
+		this.setLocaleState(nextLocale);
+	}
 }

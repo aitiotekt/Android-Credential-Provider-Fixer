@@ -6,6 +6,6 @@ Linux 允许并测试源码构建，但首个版本不计划提供 AppImage、De
 
 应用不捆绑 ADB、驱动或 updater。商店描述必须在开头披露外部 Android SDK Platform-Tools 依赖。引导式 Demo 允许审核人员在没有设备时查看诊断、计划、模拟 Pin、快照和模拟 Restore；它持续标记为模拟状态，使用内置 fixture，不能执行真实 ADB 操作。
 
-`0.1.0-alpha.3` 只有 CI 构建验证，没有 release workflow、签名 secret 接口、notarization job、文档部署或已发布安装包。在签名产物完成手工验证前，不得把这些 Phase 4 工作描述为已完成。
+`0.1.0-alpha.5` 只有 CI 构建验证，没有 release workflow、签名 secret 接口、notarization job、文档部署或已发布安装包。在签名产物完成手工验证前，不得把这些未来分发工作描述为已完成。
 
 [English](../en/004-DISTRIBUTION-AND-STORE.md) | [中文](004-DISTRIBUTION-AND-STORE.md)

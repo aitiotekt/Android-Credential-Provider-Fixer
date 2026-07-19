@@ -3,7 +3,7 @@ members = ["apps/cli", "apps/tauri-app/src-tauri", "packages/core", "packages/st
 resolver = "3"
 
 [workspace.package]
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.5"
 authors = ["Zhou Yeheng <root@aitiotekt.com>"]
 edition = "2024"
 license = "MIT"

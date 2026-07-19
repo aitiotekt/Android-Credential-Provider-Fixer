@@ -2,7 +2,9 @@
 
 ## Current status
 
-Version `0.1.0-alpha.3` permits only the documented reads and bounded writes to `credential_service` and `credential_service_primary`. A write requires a current enumerated device/provider, a five-minute one-use plan, an atomic snapshot, exact state revalidation, read-back verification, and automatic recovery. `autofill_service` remains read-only.
+Version `0.1.0-alpha.5` permits only the documented reads and bounded writes to `credential_service` and `credential_service_primary`. A write requires a current diagnosis entity, a five-minute one-use plan bound to that diagnosis, an atomic schema-v2 snapshot, exact state revalidation, read-back verification, and automatic recovery. `autofill_service` remains read-only. The Demo frontend session resolves only a fixture gateway from its child Injector and cannot fall through to the live Tauri device gateway.
+
+The backend rejects stale parent IDs and late asynchronous results. It persists an `executing` snapshot before the first possible write, and every cancellation, expiry, state drift, or execution result is terminal. Legacy v1 snapshot files remain untouched and cannot be restored.
 
 ## Security boundaries
 

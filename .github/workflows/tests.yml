@@ -19,6 +19,7 @@ env:
   ACP_FIXER_REAL_DEVICE_TESTS: "0"
   ACP_FIXER_ALLOW_SETTINGS_WRITE_TESTS: "0"
   CARGO_TERM_COLOR: always
+  MISE_ENV: ci
 
 jobs:
   quality:
@@ -59,11 +60,16 @@ jobs:
         include:
           - name: macOS arm64
             runner: macos-15
+            mise_environment: ci
           - name: macOS Intel
             runner: macos-15-intel
+            mise_environment: ci,macos-x64
           - name: Windows x64
             runner: windows-2025
+            mise_environment: ci
     runs-on: ${{ matrix.runner }}
+    env:
+      MISE_ENV: ${{ matrix.mise_environment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

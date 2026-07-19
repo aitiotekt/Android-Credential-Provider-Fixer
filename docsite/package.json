@@ -1,6 +1,6 @@
 {
 	"name": "@aitiotekt/acp-fixer-docsite",
-	"version": "0.1.0-alpha.3",
+	"version": "0.1.0-alpha.5",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@12.1.0",

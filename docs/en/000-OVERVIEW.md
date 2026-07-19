@@ -6,7 +6,7 @@ The project is intentionally local, transparent, and narrow. It discovers ADB su
 
 ## Current release
 
-`0.1.0-alpha.3` retains Phase 1 diagnosis and adds explicit Provider selection, dry-run previews, five-minute one-use plans, atomic local snapshots, verified Exclusive Provider Pin, automatic recovery, and guarded Restore in both GUI and CLI. The guided Demo simulates the complete flow without live ADB. Provider refresh, force-stop, WebAuthn launch, report export, and physical-device writes are not implemented.
+`0.1.0-alpha.5` retains diagnosis and bounded Provider changes while making every discovery, selection, enumeration, diagnosis, preview, plan, execution, and snapshot relationship explicit. Injected frontend domain services own these resources and derive the only active view; a fixture-only Demo child Injector cannot resolve the live device gateway. GUI IPC, CLI JSON, and snapshots use schema v2; stale entity IDs and late asynchronous results cannot replace the active context. Provider refresh, force-stop, WebAuthn launch, report export, and physical-device writes are not implemented.
 
 ## Product boundaries
 

@@ -1,6 +1,6 @@
 import { createRoot } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
-import { applyTheme, createThemeController, resolveTheme } from "./theme";
+import { applyTheme, resolveTheme, ThemeController } from "../theme";
 
 describe("theme", () => {
 	it("uses the system theme only for the system preference", () => {
@@ -30,10 +30,10 @@ describe("theme", () => {
 		});
 
 		let disposeRoot: (() => void) | undefined;
-		let controller: ReturnType<typeof createThemeController> | undefined;
+		let controller: ThemeController | undefined;
 		createRoot((dispose) => {
 			disposeRoot = dispose;
-			const theme = createThemeController();
+			const theme = new ThemeController();
 			controller = theme;
 			expect(theme.resolved()).toBe("light");
 		});

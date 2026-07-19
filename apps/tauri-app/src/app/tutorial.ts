@@ -19,6 +19,11 @@ export type TutorialScene =
 	| "restoreConfirmation"
 	| "restoreOutcome";
 
+type TutorialStepData = {
+	scene: TutorialScene;
+	advanceOnInteraction?: boolean;
+};
+
 export function stopTutorial() {
 	advanceGeneration += 1;
 	activeDriver?.destroy();
@@ -33,6 +38,32 @@ export function advanceTutorial(nextElement: string) {
 	}
 	const nextIndex = (tutorial.getActiveIndex() ?? -1) + 1;
 	moveWhenTargetReady(tutorial, nextIndex, nextElement);
+}
+
+export function advanceTutorialFromInteraction(
+	target: EventTarget | null,
+): boolean {
+	const tutorial = activeDriver;
+	const step = tutorial?.getActiveStep();
+	const activeElement = tutorial?.getActiveElement();
+	const data = step?.data as TutorialStepData | undefined;
+	if (
+		!tutorial?.isActive() ||
+		!data?.advanceOnInteraction ||
+		!(target instanceof Node) ||
+		!activeElement?.contains(target)
+	) {
+		return false;
+	}
+	const nextIndex = (tutorial.getActiveIndex() ?? -1) + 1;
+	const nextStep = tutorial.getConfig().steps?.[nextIndex];
+	const selector =
+		typeof nextStep?.element === "string" ? nextStep.element : undefined;
+	if (selector) {
+		moveWhenTargetReady(tutorial, nextIndex, selector);
+		return true;
+	}
+	return false;
 }
 
 function moveWhenTargetReady(
@@ -62,7 +93,7 @@ function moveWhenTargetReady(
 function sceneForStep(
 	step: ReturnType<Driver["getActiveStep"]>,
 ): TutorialScene | undefined {
-	return step?.data?.scene as TutorialScene | undefined;
+	return (step?.data as TutorialStepData | undefined)?.scene;
 }
 
 export function startTutorial(
@@ -144,7 +175,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='continue-adb']",
-				data: { scene: "adb" },
+				data: { scene: "adb", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourContinueTitle,
@@ -162,7 +193,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='select-device']",
-				data: { scene: "devices" },
+				data: { scene: "devices", advanceOnInteraction: true },
 				waitForElement: 3_000,
 				disableActiveInteraction: false,
 				popover: {
@@ -181,7 +212,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='confirm-check']",
-				data: { scene: "confirmation" },
+				data: { scene: "confirmation", advanceOnInteraction: true },
 				waitForElement: 3_000,
 				disableActiveInteraction: false,
 				popover: {
@@ -191,7 +222,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='run-diagnosis']",
-				data: { scene: "confirmation" },
+				data: { scene: "confirmation", advanceOnInteraction: true },
 				waitForElement: 3_000,
 				disableActiveInteraction: false,
 				popover: {
@@ -210,7 +241,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='select-provider']",
-				data: { scene: "diagnosis" },
+				data: { scene: "diagnosis", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourProviderTitle,
@@ -228,7 +259,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='risk-confirm']",
-				data: { scene: "pinPreview" },
+				data: { scene: "pinPreview", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourRiskTitle,
@@ -237,7 +268,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='create-plan']",
-				data: { scene: "pinPreview" },
+				data: { scene: "pinPreview", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourCreatePlanTitle,
@@ -254,8 +285,18 @@ export function startTutorial(
 				},
 			},
 			{
+				element: "[data-tour='device-write-check']",
+				data: { scene: "pinConfirmation", advanceOnInteraction: true },
+				waitForElement: 3_000,
+				disableActiveInteraction: false,
+				popover: {
+					title: messages.tourWriteConfirmTitle,
+					description: messages.tourWriteConfirmBody,
+				},
+			},
+			{
 				element: "[data-tour='apply-change']",
-				data: { scene: "pinConfirmation" },
+				data: { scene: "pinConfirmation", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourApplyTitle,
@@ -273,7 +314,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='open-snapshots']",
-				data: { scene: "pinOutcome" },
+				data: { scene: "pinOutcome", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourRestoreTitle,
@@ -282,7 +323,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='preview-restore']",
-				data: { scene: "snapshots" },
+				data: { scene: "snapshots", advanceOnInteraction: true },
 				waitForElement: 3_000,
 				disableActiveInteraction: false,
 				popover: {
@@ -292,7 +333,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='risk-confirm']",
-				data: { scene: "restorePreview" },
+				data: { scene: "restorePreview", advanceOnInteraction: true },
 				waitForElement: 3_000,
 				disableActiveInteraction: false,
 				popover: {
@@ -302,7 +343,7 @@ export function startTutorial(
 			},
 			{
 				element: "[data-tour='create-plan']",
-				data: { scene: "restorePreview" },
+				data: { scene: "restorePreview", advanceOnInteraction: true },
 				disableActiveInteraction: false,
 				popover: {
 					title: messages.tourCreatePlanTitle,
@@ -310,8 +351,18 @@ export function startTutorial(
 				},
 			},
 			{
+				element: "[data-tour='device-write-check']",
+				data: { scene: "restoreConfirmation", advanceOnInteraction: true },
+				waitForElement: 3_000,
+				disableActiveInteraction: false,
+				popover: {
+					title: messages.tourWriteConfirmTitle,
+					description: messages.tourWriteConfirmBody,
+				},
+			},
+			{
 				element: "[data-tour='apply-change']",
-				data: { scene: "restoreConfirmation" },
+				data: { scene: "restoreConfirmation", advanceOnInteraction: true },
 				waitForElement: 3_000,
 				disableActiveInteraction: false,
 				popover: {

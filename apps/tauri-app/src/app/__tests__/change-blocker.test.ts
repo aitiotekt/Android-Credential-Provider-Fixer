@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { translations } from "../i18n/translations";
-import { type ChangeBlocker } from "../lib/tauri";
-import { blockerMessage } from "./App";
+import { translations } from "../../i18n/translations";
+import { type ChangeBlocker } from "../../lib/tauri";
+import { blockerMessage } from "../App";
 
 describe("change blocker messages", () => {
 	const blockers: ChangeBlocker[] = [

@@ -27,7 +27,7 @@ fn version_matches_workspace_version() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap().trim(),
-        "acp-fixer 0.1.0-alpha.3"
+        "acp-fixer 0.1.0-alpha.5"
     );
 }
 
@@ -38,7 +38,7 @@ fn demo_json_is_one_versioned_simulated_document() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let document: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(document["schemaVersion"], 1);
+    assert_eq!(document["schemaVersion"], 2);
     assert_eq!(document["simulated"], true);
     assert_eq!(document["report"]["mode"], "demo");
 }

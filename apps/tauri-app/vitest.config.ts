@@ -1,8 +1,9 @@
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
+import { createSwcCompatPlugin } from "./config/swc-compat.ts";
 
 export default defineConfig({
-	plugins: [solid()],
+	plugins: [solid(), createSwcCompatPlugin()],
 	test: {
 		environment: "jsdom",
 		environmentOptions: {

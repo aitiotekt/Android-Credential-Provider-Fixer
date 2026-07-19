@@ -1,0 +1,4 @@
+# pnpm's Aqua registry metadata omits the compatibility-only Intel macOS target.
+# Keep the default backend everywhere else and use pnpm's official release asset here.
+[tool_alias]
+pnpm = "github:pnpm/pnpm"

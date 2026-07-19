@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { translations } from "../i18n/translations";
+import { translations } from "../../i18n/translations";
 
 const mock = vi.hoisted(() => ({
 	driver: vi.fn(),
@@ -8,6 +8,8 @@ const mock = vi.hoisted(() => ({
 	moveNext: vi.fn(),
 	moveTo: vi.fn(),
 	activeIndex: 0,
+	activeElement: undefined as HTMLElement | undefined,
+	activeStep: undefined as Record<string, unknown> | undefined,
 	instance: undefined as Record<string, unknown> | undefined,
 	config: undefined as Record<string, unknown> | undefined,
 }));
@@ -22,6 +24,8 @@ vi.mock("driver.js", () => ({
 			moveNext: mock.moveNext,
 			moveTo: mock.moveTo,
 			getActiveIndex: () => mock.activeIndex,
+			getActiveElement: () => mock.activeElement,
+			getActiveStep: () => mock.activeStep,
 			getConfig: () => mock.config,
 			isActive: () => true,
 		};
@@ -29,7 +33,12 @@ vi.mock("driver.js", () => ({
 	},
 }));
 
-import { advanceTutorial, startTutorial, stopTutorial } from "./tutorial";
+import {
+	advanceTutorial,
+	advanceTutorialFromInteraction,
+	startTutorial,
+	stopTutorial,
+} from "../tutorial";
 
 describe("tutorial", () => {
 	beforeEach(() => {
@@ -40,6 +49,8 @@ describe("tutorial", () => {
 		mock.moveNext.mockReset();
 		mock.moveTo.mockReset();
 		mock.activeIndex = 0;
+		mock.activeElement = undefined;
+		mock.activeStep = undefined;
 		mock.instance = undefined;
 		mock.config = undefined;
 		Object.defineProperty(window, "matchMedia", {
@@ -166,6 +177,63 @@ describe("tutorial", () => {
 
 		expect(sceneChanged).not.toHaveBeenCalled();
 		expect(mock.moveTo).toHaveBeenCalledWith(2);
+		target.remove();
+	});
+
+	it("advances after the current highlighted control performs its action", () => {
+		startTutorial(translations.en, {
+			completed: vi.fn(),
+			dismissed: vi.fn(),
+		});
+		const current = document.createElement("button");
+		const child = document.createElement("span");
+		current.append(child);
+		document.body.append(current);
+		const next = document.createElement("div");
+		next.dataset.tour = "device-card";
+		document.body.append(next);
+		mock.activeIndex = 2;
+		mock.activeElement = current;
+		mock.activeStep = {
+			data: { scene: "adb", advanceOnInteraction: true },
+		};
+
+		advanceTutorialFromInteraction(child);
+
+		expect(mock.moveTo).toHaveBeenCalledWith(3);
+		current.remove();
+		next.remove();
+	});
+
+	it("exposes the snapshot continuation after the pin outcome", () => {
+		const sceneChanged = vi.fn();
+		startTutorial(translations.en, {
+			completed: vi.fn(),
+			dismissed: vi.fn(),
+			sceneChanged,
+		});
+		const target = document.createElement("button");
+		target.dataset.tour = "open-snapshots";
+		document.body.append(target);
+		const steps = mock.config?.steps as Array<Record<string, unknown>>;
+		const onNextClick = mock.config?.onNextClick as (
+			element: undefined,
+			step: Record<string, unknown>,
+			opts: Record<string, unknown>,
+		) => void;
+		const outcomeIndex = steps.findIndex(
+			(step) =>
+				step.element === "[data-tour='change-outcome']" &&
+				(step.data as { scene?: string } | undefined)?.scene === "pinOutcome",
+		);
+
+		onNextClick(undefined, steps[outcomeIndex] ?? {}, {
+			driver: mock.instance,
+			index: outcomeIndex,
+		});
+
+		expect(sceneChanged).not.toHaveBeenCalled();
+		expect(mock.moveTo).toHaveBeenCalledWith(outcomeIndex + 1);
 		target.remove();
 	});
 

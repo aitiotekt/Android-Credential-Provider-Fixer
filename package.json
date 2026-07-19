@@ -1,6 +1,6 @@
 {
 	"name": "android-credential-provider-fixer",
-	"version": "0.1.0-alpha.3",
+	"version": "0.1.0-alpha.5",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@12.1.0",
@@ -15,6 +15,7 @@
 		"lint:fix": "biome check --write .",
 		"prepare": "prek install",
 		"security:check": "node scripts/dev-cli.mts security check",
+		"architecture:check": "node scripts/dev-cli.mts architecture check",
 		"test": "turbo run test",
 		"typecheck": "tsc -b --pretty false",
 		"version:check": "node scripts/dev-cli.mts version check"

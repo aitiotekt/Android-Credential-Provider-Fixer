@@ -18,7 +18,7 @@
 
 Phase 1 contains no `settings put` or `settings delete`.
 
-## Phase 2 — plans, snapshots, and bounded recovery — current
+## Phase 2 — plans, snapshots, and bounded recovery — complete
 
 - Before/after diff and expiring one-use plan IDs
 - Versioned atomic snapshots bound to a device and user
@@ -26,6 +26,8 @@ Phase 1 contains no `settings put` or `settings delete`.
 - Exclusive Provider Pin
 - Per-write read-back verification and automatic recovery
 - Guarded manual restore
+- Schema-v2 entity identities, parent relationships, session revisions, and terminal lifecycle states
+- Diagnosis freshness enforcement across GUI, Tauri IPC, CLI JSON, and the isolated Demo
 
 ## Phase 3 — provider validation helpers
 

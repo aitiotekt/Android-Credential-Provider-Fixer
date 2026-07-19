@@ -9,10 +9,11 @@ use std::{
 };
 
 use acp_fixer_core::{
-    ChangeError, SnapshotInventory, SnapshotRecord, SnapshotStatus, SnapshotStore, SnapshotWarning,
+    ChangeError, SnapshotId, SnapshotInventory, SnapshotRecord, SnapshotStatus, SnapshotStore,
+    SnapshotWarning,
 };
 
-const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 const MAX_NORMAL_SNAPSHOTS_PER_DEVICE: usize = 20;
 
 #[derive(Clone, Debug)]
@@ -32,7 +33,7 @@ impl FileSnapshotStore {
     }
 
     fn inventory(&self) -> Result<SnapshotInventory, ChangeError> {
-        let mut latest = HashMap::<String, SnapshotRecord>::new();
+        let mut latest = HashMap::<SnapshotId, SnapshotRecord>::new();
         let mut warnings = Vec::new();
         let entries = match fs::read_dir(&self.root) {
             Ok(entries) => entries,
@@ -62,25 +63,24 @@ impl FileSnapshotStore {
                 .and_then(|value| value.to_str())
                 .unwrap_or("<invalid>")
                 .to_owned();
-            let record =
-                match fs::read(&path)
-                    .map_err(|error| error.to_string())
-                    .and_then(|bytes| {
-                        serde_json::from_slice::<SnapshotRecord>(&bytes)
-                            .map_err(|error| error.to_string())
-                    }) {
-                    Ok(record) if record.schema_version == SNAPSHOT_SCHEMA_VERSION => record,
-                    Ok(record) => {
-                        warnings.push(SnapshotWarning {
-                            file: display,
-                            code: "SNAPSHOT_INVALID".to_owned(),
-                            message: format!(
-                                "unsupported schema version {}",
-                                record.schema_version
-                            ),
-                        });
-                        continue;
+            let record = match fs::read(&path)
+                .map_err(|error| error.to_string())
+                .and_then(|bytes| {
+                    let value: serde_json::Value =
+                        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+                    let schema_version = value
+                        .get("schemaVersion")
+                        .and_then(serde_json::Value::as_u64)
+                        .unwrap_or_default();
+                    if schema_version != u64::from(SNAPSHOT_SCHEMA_VERSION) {
+                        return Err(format!(
+                            "unsupported snapshot schema version {schema_version}; file was preserved"
+                        ));
                     }
+                    serde_json::from_value::<SnapshotRecord>(value)
+                        .map_err(|error| error.to_string())
+                }) {
+                    Ok(record) => record,
                     Err(error) => {
                         warnings.push(SnapshotWarning {
                             file: display,
@@ -90,7 +90,7 @@ impl FileSnapshotStore {
                         continue;
                     }
                 };
-            if validate_id(&record.snapshot_id).is_err() {
+            if validate_id(record.snapshot_id.as_str()).is_err() {
                 warnings.push(SnapshotWarning {
                     file: display,
                     code: "SNAPSHOT_INVALID".to_owned(),
@@ -127,7 +127,9 @@ impl FileSnapshotStore {
         for snapshot in &inventory.snapshots {
             if !matches!(
                 snapshot.status,
-                SnapshotStatus::Applied | SnapshotStatus::RecoveryFailed
+                SnapshotStatus::Applied
+                    | SnapshotStatus::RecoveryFailed
+                    | SnapshotStatus::Executing
             ) {
                 ordinary_by_device
                     .entry(snapshot.device.serial.clone())
@@ -161,7 +163,7 @@ impl FileSnapshotStore {
 
 impl SnapshotStore for FileSnapshotStore {
     fn save(&self, snapshot: &SnapshotRecord) -> Result<(), ChangeError> {
-        validate_id(&snapshot.snapshot_id)?;
+        validate_id(snapshot.snapshot_id.as_str())?;
         if snapshot.schema_version != SNAPSHOT_SCHEMA_VERSION || snapshot.revision == 0 {
             return Err(ChangeError::SnapshotInvalid {
                 message: "unsupported schema version or revision".to_owned(),
@@ -200,14 +202,14 @@ impl SnapshotStore for FileSnapshotStore {
         self.prune()
     }
 
-    fn load(&self, snapshot_id: &str) -> Result<SnapshotRecord, ChangeError> {
-        validate_id(snapshot_id)?;
+    fn load(&self, snapshot_id: &SnapshotId) -> Result<SnapshotRecord, ChangeError> {
+        validate_id(snapshot_id.as_str())?;
         self.inventory()?
             .snapshots
             .into_iter()
-            .find(|snapshot| snapshot.snapshot_id == snapshot_id)
+            .find(|snapshot| snapshot.snapshot_id == *snapshot_id)
             .ok_or_else(|| ChangeError::SnapshotNotFound {
-                snapshot_id: snapshot_id.to_owned(),
+                snapshot_id: snapshot_id.clone(),
             })
     }
 
@@ -290,7 +292,7 @@ mod tests {
 
     use acp_fixer_core::{
         AndroidUser, ChangeKind, ComponentName, ConnectionType, DeviceInfo, ManagedCredentialState,
-        ManagedSettingValue, SnapshotRecord, SnapshotStatus, ValidatedAdb,
+        ManagedSettingValue, PlanId, SnapshotId, SnapshotRecord, SnapshotStatus, ValidatedAdb,
     };
 
     use super::*;
@@ -317,6 +319,23 @@ mod tests {
     }
 
     #[test]
+    fn preserves_v1_files_and_reports_them_as_unsupported() {
+        let directory = temporary_directory();
+        let store = FileSnapshotStore::new(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        let legacy = directory.join("legacy.1.json");
+        fs::write(&legacy, br#"{"schemaVersion":1,"snapshotId":"legacy"}"#).unwrap();
+
+        let inventory = store.list().unwrap();
+
+        assert!(inventory.snapshots.is_empty());
+        assert_eq!(inventory.warnings.len(), 1);
+        assert!(inventory.warnings[0].message.contains("preserved"));
+        assert!(legacy.exists());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
     fn retains_twenty_ordinary_records_and_protects_unrestored_changes() {
         let directory = temporary_directory();
         let store = FileSnapshotStore::new(&directory);
@@ -337,13 +356,13 @@ mod tests {
             inventory
                 .snapshots
                 .iter()
-                .any(|snapshot| snapshot.snapshot_id == "applied-protected")
+                .any(|snapshot| snapshot.snapshot_id.as_str() == "applied-protected")
         );
         assert!(
             !inventory
                 .snapshots
                 .iter()
-                .any(|snapshot| snapshot.snapshot_id == "ordinary-0")
+                .any(|snapshot| snapshot.snapshot_id.as_str() == "ordinary-0")
         );
         fs::remove_dir_all(directory).unwrap();
     }
@@ -354,10 +373,11 @@ mod tests {
             primary: ManagedSettingValue::Missing,
         };
         SnapshotRecord {
-            schema_version: 1,
+            schema_version: 2,
             revision,
-            snapshot_id: id.to_owned(),
-            plan_id: "plan-a".to_owned(),
+            snapshot_id: SnapshotId::from(id),
+            plan_id: PlanId::from("plan-a"),
+            source_diagnosis_id: acp_fixer_core::DiagnosisId::from("diagnosis-a"),
             source_snapshot_id: None,
             created_at_unix_ms: 1,
             updated_at_unix_ms: u64::from(revision),

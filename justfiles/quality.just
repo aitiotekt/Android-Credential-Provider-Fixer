@@ -31,4 +31,7 @@ check-version:
 check-security:
     node scripts/dev-cli.mts security check
 
-verify: format-check lint typecheck test build build-docs check-docs check-icons check-version check-security
+check-architecture:
+    node scripts/dev-cli.mts architecture check
+
+verify: format-check lint typecheck test build build-docs check-docs check-icons check-version check-security check-architecture

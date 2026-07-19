@@ -4,7 +4,7 @@
 		"emitDeclarationOnly": true,
 		"jsx": "preserve",
 		"jsxImportSource": "@solidjs/web",
-		"lib": ["ES2024", "DOM", "DOM.Iterable"],
+		"lib": ["ES2024", "ESNext.Disposable", "DOM", "DOM.Iterable"],
 		"outDir": "./dist-tsc/app",
 		"rootDir": "./src",
 		"skipLibCheck": true,

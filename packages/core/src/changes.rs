@@ -7,9 +7,9 @@ use crate::diagnostics::{
     ADB_COMMAND_MAX_OUTPUT_BYTES, ADB_COMMAND_TIMEOUT, ensure_success, now_unix_ms, read_setting,
 };
 use crate::{
-    CommandRequest, CommandRunner, ComponentName, DiagnosisReport, DiagnosisStatus,
-    DiagnosticError, ErrorCode, SettingValue, ValidatedAdb, canonical_component_name,
-    diagnose_device, run_command,
+    CommandRequest, CommandRunner, ComponentName, DiagnosisCompleteness, DiagnosisId,
+    DiagnosisReport, DiagnosticError, ErrorCode, ErrorEnvelope, ExecutionId, PlanId, PreviewId,
+    SettingValue, SnapshotId, ValidatedAdb, canonical_component_name, diagnose_device, run_command,
 };
 
 pub const CHANGE_PLAN_TTL_MS: u64 = 5 * 60 * 1_000;
@@ -79,12 +79,34 @@ pub struct ManagedCredentialState {
     pub primary: ManagedSettingValue,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PreviewStatus {
+    Ready,
+    Consumed,
+    Invalidated,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PlanStatus {
+    Ready,
+    Executing,
+    Cancelled,
+    Expired,
+    Invalidated,
+    Completed,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangePreview {
     pub schema_version: u32,
-    pub preview_id: String,
-    pub source_snapshot_id: Option<String>,
+    pub preview_id: PreviewId,
+    pub revision: u32,
+    pub status: PreviewStatus,
+    pub source_diagnosis_id: DiagnosisId,
+    pub source_snapshot_id: Option<SnapshotId>,
     pub kind: ChangeKind,
     pub created_at_unix_ms: u64,
     pub adb: ValidatedAdb,
@@ -102,7 +124,7 @@ pub struct ChangePreview {
 impl ChangePreview {
     #[must_use]
     pub fn eligible(&self) -> bool {
-        self.blockers.is_empty()
+        self.status == PreviewStatus::Ready && self.blockers.is_empty()
     }
 }
 
@@ -110,9 +132,12 @@ impl ChangePreview {
 #[serde(rename_all = "camelCase")]
 pub struct ChangePlan {
     pub schema_version: u32,
-    pub plan_id: String,
-    pub snapshot_id: String,
-    pub source_snapshot_id: Option<String>,
+    pub plan_id: PlanId,
+    pub snapshot_id: SnapshotId,
+    pub source_preview_id: PreviewId,
+    pub source_diagnosis_id: DiagnosisId,
+    pub source_snapshot_id: Option<SnapshotId>,
+    pub status: PlanStatus,
     pub created_at_unix_ms: u64,
     pub expires_at_unix_ms: u64,
     pub kind: ChangeKind,
@@ -130,7 +155,10 @@ pub struct ChangePlan {
 #[serde(rename_all = "camelCase")]
 pub enum SnapshotStatus {
     Planned,
+    Executing,
+    Cancelled,
     Expired,
+    Invalidated,
     Applied,
     Recovered,
     RecoveryFailed,
@@ -142,9 +170,10 @@ pub enum SnapshotStatus {
 pub struct SnapshotRecord {
     pub schema_version: u32,
     pub revision: u32,
-    pub snapshot_id: String,
-    pub plan_id: String,
-    pub source_snapshot_id: Option<String>,
+    pub snapshot_id: SnapshotId,
+    pub plan_id: PlanId,
+    pub source_diagnosis_id: DiagnosisId,
+    pub source_snapshot_id: Option<SnapshotId>,
     pub created_at_unix_ms: u64,
     pub updated_at_unix_ms: u64,
     pub status: SnapshotStatus,
@@ -190,13 +219,40 @@ pub enum ChangeOutcomeStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ChangeOutcome {
     pub schema_version: u32,
-    pub plan_id: String,
-    pub snapshot_id: String,
+    pub plan_id: PlanId,
+    pub snapshot_id: SnapshotId,
     pub status: ChangeOutcomeStatus,
     pub completed_at_unix_ms: u64,
     pub steps: Vec<ChangeStepOutcome>,
     pub recovery_steps: Vec<ChangeStepOutcome>,
     pub observed: ManagedCredentialState,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ExecutionStatus {
+    Applied,
+    Restored,
+    Recovered,
+    RecoveryFailed,
+    Cancelled,
+    Expired,
+    Invalidated,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeExecution {
+    pub schema_version: u32,
+    pub execution_id: ExecutionId,
+    pub plan_id: PlanId,
+    pub source_diagnosis_id: DiagnosisId,
+    pub status: ExecutionStatus,
+    pub write_attempted: bool,
+    pub completed_at_unix_ms: u64,
+    pub outcome: Option<ChangeOutcome>,
+    pub error: Option<ErrorEnvelope>,
+    pub persistence_warning: Option<ErrorEnvelope>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -217,7 +273,7 @@ pub struct SnapshotInventory {
 
 pub trait SnapshotStore: Send + Sync {
     fn save(&self, snapshot: &SnapshotRecord) -> Result<(), ChangeError>;
-    fn load(&self, snapshot_id: &str) -> Result<SnapshotRecord, ChangeError>;
+    fn load(&self, snapshot_id: &SnapshotId) -> Result<SnapshotRecord, ChangeError>;
     fn list(&self) -> Result<SnapshotInventory, ChangeError>;
 }
 
@@ -246,9 +302,9 @@ pub enum ChangeError {
     #[error("the device state changed after the plan was created")]
     StateChanged,
     #[error("snapshot {snapshot_id} is not restorable")]
-    SnapshotNotRestorable { snapshot_id: String },
+    SnapshotNotRestorable { snapshot_id: SnapshotId },
     #[error("snapshot {snapshot_id} was not found")]
-    SnapshotNotFound { snapshot_id: String },
+    SnapshotNotFound { snapshot_id: SnapshotId },
     #[error("snapshot storage failed: {message}")]
     SnapshotStorage { message: String },
     #[error("snapshot data is invalid: {message}")]
@@ -286,11 +342,12 @@ pub fn prepare_pin(
     report: &DiagnosisReport,
     target: &ComponentName,
     allow_unparsed: bool,
-    preview_id: String,
+    source_diagnosis_id: DiagnosisId,
+    preview_id: PreviewId,
     created_at_unix_ms: u64,
 ) -> Result<ChangePreview, ChangeError> {
     let mut blockers = Vec::new();
-    if report.status == DiagnosisStatus::Unsupported || report.device.api_level < 34 {
+    if report.completeness == DiagnosisCompleteness::Unsupported || report.device.api_level < 34 {
         blockers.push(ChangeBlocker::AndroidVersionUnsupported);
     }
     let Some(user) = report.android_user.clone() else {
@@ -323,8 +380,11 @@ pub fn prepare_pin(
         blockers.push(ChangeBlocker::NoChangeRequired);
     }
     Ok(ChangePreview {
-        schema_version: 1,
+        schema_version: 2,
         preview_id,
+        revision: 1,
+        status: PreviewStatus::Ready,
+        source_diagnosis_id,
         source_snapshot_id: None,
         kind: ChangeKind::Pin,
         created_at_unix_ms,
@@ -344,7 +404,8 @@ pub fn prepare_pin(
 pub fn prepare_restore(
     report: &DiagnosisReport,
     snapshot: &SnapshotRecord,
-    preview_id: String,
+    source_diagnosis_id: DiagnosisId,
+    preview_id: PreviewId,
     created_at_unix_ms: u64,
 ) -> Result<ChangePreview, ChangeError> {
     if snapshot.status != SnapshotStatus::Applied {
@@ -370,8 +431,11 @@ pub fn prepare_restore(
         blockers.push(ChangeBlocker::StateChanged);
     }
     Ok(ChangePreview {
-        schema_version: 1,
+        schema_version: 2,
         preview_id,
+        revision: 1,
+        status: PreviewStatus::Ready,
+        source_diagnosis_id,
         source_snapshot_id: Some(snapshot.snapshot_id.clone()),
         kind: ChangeKind::Restore,
         created_at_unix_ms,
@@ -390,18 +454,21 @@ pub fn prepare_restore(
 
 pub fn create_change_plan(
     preview: &ChangePreview,
-    plan_id: String,
-    snapshot_id: String,
+    plan_id: PlanId,
+    snapshot_id: SnapshotId,
     created_at_unix_ms: u64,
 ) -> Result<(ChangePlan, SnapshotRecord), ChangeError> {
     if !preview.eligible() {
         return Err(ChangeError::PreviewBlocked);
     }
     let plan = ChangePlan {
-        schema_version: 1,
+        schema_version: 2,
         plan_id,
         snapshot_id,
+        source_preview_id: preview.preview_id.clone(),
+        source_diagnosis_id: preview.source_diagnosis_id.clone(),
         source_snapshot_id: preview.source_snapshot_id.clone(),
+        status: PlanStatus::Ready,
         created_at_unix_ms,
         expires_at_unix_ms: created_at_unix_ms.saturating_add(CHANGE_PLAN_TTL_MS),
         kind: preview.kind,
@@ -415,10 +482,11 @@ pub fn create_change_plan(
         allow_unparsed: preview.allow_unparsed,
     };
     let snapshot = SnapshotRecord {
-        schema_version: 1,
+        schema_version: 2,
         revision: 1,
         snapshot_id: plan.snapshot_id.clone(),
         plan_id: plan.plan_id.clone(),
+        source_diagnosis_id: plan.source_diagnosis_id.clone(),
         source_snapshot_id: plan.source_snapshot_id.clone(),
         created_at_unix_ms,
         updated_at_unix_ms: created_at_unix_ms,
@@ -476,7 +544,7 @@ pub async fn execute_change(
             let recovered = recovery_steps.iter().all(|step| step.success);
             let observed = observe_managed(runner, plan).await;
             return Ok(ChangeOutcome {
-                schema_version: 1,
+                schema_version: 2,
                 plan_id: plan.plan_id.clone(),
                 snapshot_id: plan.snapshot_id.clone(),
                 status: if recovered {
@@ -492,7 +560,7 @@ pub async fn execute_change(
         }
     }
     Ok(ChangeOutcome {
-        schema_version: 1,
+        schema_version: 2,
         plan_id: plan.plan_id.clone(),
         snapshot_id: plan.snapshot_id.clone(),
         status: match plan.kind {
@@ -544,6 +612,85 @@ pub fn expire_snapshot(snapshot: &mut SnapshotRecord, now_unix_ms: u64) {
         snapshot.updated_at_unix_ms = now_unix_ms;
         snapshot.status = SnapshotStatus::Expired;
     }
+}
+
+pub fn mark_snapshot_executing(
+    snapshot: &mut SnapshotRecord,
+    now_unix_ms: u64,
+) -> Result<(), ChangeError> {
+    transition_snapshot(
+        snapshot,
+        SnapshotStatus::Planned,
+        SnapshotStatus::Executing,
+        now_unix_ms,
+        None,
+    )
+}
+
+pub fn cancel_snapshot(snapshot: &mut SnapshotRecord, now_unix_ms: u64) -> Result<(), ChangeError> {
+    transition_snapshot(
+        snapshot,
+        SnapshotStatus::Planned,
+        SnapshotStatus::Cancelled,
+        now_unix_ms,
+        None,
+    )
+}
+
+pub fn invalidate_snapshot(
+    snapshot: &mut SnapshotRecord,
+    now_unix_ms: u64,
+    message: impl Into<String>,
+) -> Result<(), ChangeError> {
+    if !matches!(
+        snapshot.status,
+        SnapshotStatus::Planned | SnapshotStatus::Executing
+    ) {
+        return Err(ChangeError::PlanUnavailable);
+    }
+    snapshot.revision = snapshot.revision.saturating_add(1);
+    snapshot.updated_at_unix_ms = now_unix_ms;
+    snapshot.status = SnapshotStatus::Invalidated;
+    snapshot.message = Some(message.into());
+    Ok(())
+}
+
+pub fn authorize_unparsed_preview(preview: &mut ChangePreview) -> Result<(), ChangeError> {
+    if preview.status != PreviewStatus::Ready {
+        return Err(ChangeError::PreviewBlocked);
+    }
+    preview.allow_unparsed = true;
+    preview.revision = preview.revision.saturating_add(1);
+    preview
+        .blockers
+        .retain(|blocker| *blocker != ChangeBlocker::UnparsedConfirmationRequired);
+    Ok(())
+}
+
+pub fn consume_preview(preview: &mut ChangePreview) -> Result<(), ChangeError> {
+    if !preview.eligible() {
+        return Err(ChangeError::PreviewBlocked);
+    }
+    preview.revision = preview.revision.saturating_add(1);
+    preview.status = PreviewStatus::Consumed;
+    Ok(())
+}
+
+fn transition_snapshot(
+    snapshot: &mut SnapshotRecord,
+    expected: SnapshotStatus,
+    next: SnapshotStatus,
+    now_unix_ms: u64,
+    message: Option<String>,
+) -> Result<(), ChangeError> {
+    if snapshot.status != expected {
+        return Err(ChangeError::PlanUnavailable);
+    }
+    snapshot.revision = snapshot.revision.saturating_add(1);
+    snapshot.updated_at_unix_ms = now_unix_ms;
+    snapshot.status = next;
+    snapshot.message = message;
+    Ok(())
 }
 
 fn managed_state(report: &DiagnosisReport) -> Result<ManagedCredentialState, ChangeError> {
@@ -728,6 +875,22 @@ mod tests {
     };
     use async_trait::async_trait;
 
+    fn diagnosis_id() -> DiagnosisId {
+        DiagnosisId::from("diagnosis")
+    }
+
+    fn preview_id(value: &str) -> PreviewId {
+        PreviewId::from(value)
+    }
+
+    fn plan_id(value: &str) -> PlanId {
+        PlanId::from(value)
+    }
+
+    fn snapshot_id(value: &str) -> SnapshotId {
+        SnapshotId::from(value)
+    }
+
     #[test]
     fn pin_preview_requires_override_for_unparsed_raw_value() {
         let mut report = report();
@@ -737,8 +900,24 @@ mod tests {
         };
         let target = report.providers[0].component.clone();
 
-        let blocked = prepare_pin(&report, &target, false, "preview".to_owned(), 1).unwrap();
-        let allowed = prepare_pin(&report, &target, true, "preview".to_owned(), 1).unwrap();
+        let blocked = prepare_pin(
+            &report,
+            &target,
+            false,
+            diagnosis_id(),
+            preview_id("preview"),
+            1,
+        )
+        .unwrap();
+        let allowed = prepare_pin(
+            &report,
+            &target,
+            true,
+            diagnosis_id(),
+            preview_id("preview"),
+            1,
+        )
+        .unwrap();
 
         assert!(blocked.requires_unparsed_confirmation);
         assert!(
@@ -765,7 +944,15 @@ mod tests {
             service_class: "com.example.Provider".to_owned(),
         };
 
-        let preview = prepare_pin(&report, &full, false, "preview".to_owned(), 1).unwrap();
+        let preview = prepare_pin(
+            &report,
+            &full,
+            false,
+            diagnosis_id(),
+            preview_id("preview"),
+            1,
+        )
+        .unwrap();
 
         assert!(preview.eligible());
     }
@@ -777,16 +964,72 @@ mod tests {
             &report,
             &report.providers[0].component,
             false,
-            "preview".to_owned(),
+            diagnosis_id(),
+            preview_id("preview"),
             10,
         )
         .unwrap();
         let (plan, snapshot) =
-            create_change_plan(&preview, "plan".to_owned(), "snapshot".to_owned(), 10).unwrap();
+            create_change_plan(&preview, plan_id("plan"), snapshot_id("snapshot"), 10).unwrap();
 
         assert_eq!(plan.expires_at_unix_ms, 10 + CHANGE_PLAN_TTL_MS);
         assert_eq!(snapshot.before, preview.before);
         assert_eq!(snapshot.status, SnapshotStatus::Planned);
+        assert_eq!(plan.source_diagnosis_id, preview.source_diagnosis_id);
+        assert_eq!(plan.source_preview_id, preview.preview_id);
+    }
+
+    #[test]
+    fn preview_authorization_is_a_revisioned_transition_and_consumption_is_one_way() {
+        let mut report = report();
+        report.credential_state.enabled.value = SettingValue::Value {
+            raw: "oem:encoding".to_owned(),
+            components: None,
+        };
+        let target = report.providers[0].component.clone();
+        let mut preview = prepare_pin(
+            &report,
+            &target,
+            false,
+            diagnosis_id(),
+            preview_id("preview"),
+            1,
+        )
+        .unwrap();
+
+        authorize_unparsed_preview(&mut preview).unwrap();
+        assert_eq!(preview.revision, 2);
+        assert!(preview.eligible());
+        consume_preview(&mut preview).unwrap();
+        assert_eq!(preview.status, PreviewStatus::Consumed);
+        assert!(matches!(
+            consume_preview(&mut preview),
+            Err(ChangeError::PreviewBlocked)
+        ));
+    }
+
+    #[test]
+    fn snapshot_lifecycle_rejects_replay_after_terminal_state() {
+        let report = report();
+        let preview = prepare_pin(
+            &report,
+            &report.providers[0].component,
+            false,
+            diagnosis_id(),
+            preview_id("preview"),
+            1,
+        )
+        .unwrap();
+        let (_, mut snapshot) =
+            create_change_plan(&preview, plan_id("plan"), snapshot_id("snapshot"), 1).unwrap();
+
+        mark_snapshot_executing(&mut snapshot, 2).unwrap();
+        invalidate_snapshot(&mut snapshot, 3, "drift").unwrap();
+        assert_eq!(snapshot.status, SnapshotStatus::Invalidated);
+        assert!(matches!(
+            mark_snapshot_executing(&mut snapshot, 4),
+            Err(ChangeError::PlanUnavailable)
+        ));
     }
 
     #[test]
@@ -796,14 +1039,15 @@ mod tests {
             &report,
             &report.providers[0].component,
             false,
-            "pin-preview".to_owned(),
+            diagnosis_id(),
+            preview_id("pin-preview"),
             10,
         )
         .unwrap();
         let (_, mut source) = create_change_plan(
             &preview,
-            "pin-plan".to_owned(),
-            "pin-snapshot".to_owned(),
+            plan_id("pin-plan"),
+            snapshot_id("pin-snapshot"),
             10,
         )
         .unwrap();
@@ -817,20 +1061,29 @@ mod tests {
         pinned_report.credential_state.primary.value =
             pinned_report.credential_state.enabled.value.clone();
 
-        let restore =
-            prepare_restore(&pinned_report, &source, "restore-preview".to_owned(), 20).unwrap();
-        let (plan, snapshot) = create_change_plan(
-            &restore,
-            "restore-plan".to_owned(),
-            "restore-snapshot".to_owned(),
+        let restore = prepare_restore(
+            &pinned_report,
+            &source,
+            diagnosis_id(),
+            preview_id("restore-preview"),
             20,
         )
         .unwrap();
-        assert_eq!(plan.source_snapshot_id.as_deref(), Some("pin-snapshot"));
+        let (plan, snapshot) = create_change_plan(
+            &restore,
+            plan_id("restore-plan"),
+            snapshot_id("restore-snapshot"),
+            20,
+        )
+        .unwrap();
+        assert_eq!(
+            plan.source_snapshot_id.as_ref().map(SnapshotId::as_str),
+            Some("pin-snapshot")
+        );
         assert_eq!(snapshot.source_snapshot_id, plan.source_snapshot_id);
 
         let outcome = ChangeOutcome {
-            schema_version: 1,
+            schema_version: 2,
             plan_id: plan.plan_id,
             snapshot_id: plan.snapshot_id,
             status: ChangeOutcomeStatus::Restored,
@@ -851,15 +1104,17 @@ mod tests {
             &report,
             &report.providers[0].component,
             false,
-            "preview".to_owned(),
+            diagnosis_id(),
+            preview_id("preview"),
             1,
         )
         .unwrap();
         let (_, mut snapshot) =
-            create_change_plan(&preview, "plan".to_owned(), "snapshot".to_owned(), 1).unwrap();
+            create_change_plan(&preview, plan_id("plan"), snapshot_id("snapshot"), 1).unwrap();
         snapshot.status = SnapshotStatus::RecoveryFailed;
 
-        let error = prepare_restore(&report, &snapshot, "restore".to_owned(), 2).unwrap_err();
+        let error = prepare_restore(&report, &snapshot, diagnosis_id(), preview_id("restore"), 2)
+            .unwrap_err();
 
         assert!(matches!(error, ChangeError::SnapshotNotRestorable { .. }));
     }
@@ -871,12 +1126,13 @@ mod tests {
             &report,
             &report.providers[0].component,
             false,
-            "preview".to_owned(),
+            diagnosis_id(),
+            preview_id("preview"),
             1,
         )
         .unwrap();
         let (plan, _) =
-            create_change_plan(&preview, "plan".to_owned(), "snapshot".to_owned(), 1).unwrap();
+            create_change_plan(&preview, plan_id("plan"), snapshot_id("snapshot"), 1).unwrap();
         let outputs = [
             ok(b"List of devices attached\nSERIAL device usb:1 model:Phone\n"),
             ok(b"Example\n"),
@@ -931,12 +1187,13 @@ mod tests {
             &report,
             &report.providers[0].component,
             false,
-            "preview".to_owned(),
+            diagnosis_id(),
+            preview_id("preview"),
             1,
         )
         .unwrap();
         let (plan, _) =
-            create_change_plan(&preview, "plan".to_owned(), "snapshot".to_owned(), 1).unwrap();
+            create_change_plan(&preview, plan_id("plan"), snapshot_id("snapshot"), 1).unwrap();
         let outputs = [
             ok(b"List of devices attached\nSERIAL device usb:1 model:Phone\n"),
             ok(b"Example\n"),
@@ -1030,9 +1287,9 @@ mod tests {
             service_class: ".Provider".to_owned(),
         };
         DiagnosisReport {
-            schema_version: 1,
+            schema_version: 2,
             mode: DiagnosisMode::Real,
-            status: DiagnosisStatus::Complete,
+            completeness: DiagnosisCompleteness::Complete,
             observed_at_unix_ms: 0,
             adb: ValidatedAdb {
                 path: PathBuf::from("/adb"),

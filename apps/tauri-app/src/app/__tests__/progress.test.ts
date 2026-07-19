@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { translations } from "../i18n/translations";
-import { progressItems, type WorkflowStep } from "./App";
+import { translations } from "../../i18n/translations";
+import { progressItems, type WorkflowStep } from "../App";
 
 describe("workflow progress", () => {
 	const expectedIndex: Record<WorkflowStep, number> = {

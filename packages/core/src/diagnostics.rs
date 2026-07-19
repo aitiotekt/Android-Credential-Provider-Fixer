@@ -214,7 +214,7 @@ pub enum DiagnosisMode {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum DiagnosisStatus {
+pub enum DiagnosisCompleteness {
     Complete,
     Incomplete,
     Unsupported,
@@ -225,7 +225,7 @@ pub enum DiagnosisStatus {
 pub struct DiagnosisReport {
     pub schema_version: u32,
     pub mode: DiagnosisMode,
-    pub status: DiagnosisStatus,
+    pub completeness: DiagnosisCompleteness,
     pub observed_at_unix_ms: u64,
     pub adb: ValidatedAdb,
     pub device: DeviceInfo,
@@ -500,9 +500,9 @@ pub async fn diagnose_device(
         autofill: read_setting(runner, adb, serial, user_id, "autofill_service").await,
     };
     let mut report = DiagnosisReport {
-        schema_version: 1,
+        schema_version: 2,
         mode: DiagnosisMode::Real,
-        status: DiagnosisStatus::Complete,
+        completeness: DiagnosisCompleteness::Complete,
         observed_at_unix_ms: now_unix_ms(),
         adb: adb.clone(),
         device,
@@ -528,9 +528,9 @@ fn unsupported_report(adb: &ValidatedAdb, device: DeviceInfo) -> DiagnosisReport
         },
     };
     DiagnosisReport {
-        schema_version: 1,
+        schema_version: 2,
         mode: DiagnosisMode::Real,
-        status: DiagnosisStatus::Unsupported,
+        completeness: DiagnosisCompleteness::Unsupported,
         observed_at_unix_ms: now_unix_ms(),
         adb: adb.clone(),
         device,
@@ -557,7 +557,7 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
         .iter()
         .any(|value| value.is_none())
     {
-        report.status = DiagnosisStatus::Incomplete;
+        report.completeness = DiagnosisCompleteness::Incomplete;
     }
     for observation in [
         &report.credential_state.enabled,
@@ -670,7 +670,7 @@ fn complete_report(report: &mut DiagnosisReport, registered: Vec<ComponentName>)
             component,
         })
         .collect();
-    if report.status == DiagnosisStatus::Complete
+    if report.completeness == DiagnosisCompleteness::Complete
         && !report
             .findings
             .iter()
@@ -984,7 +984,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(report.status, DiagnosisStatus::Unsupported);
+        assert_eq!(report.completeness, DiagnosisCompleteness::Unsupported);
         assert_eq!(runner.requests.lock().unwrap().len(), 6);
     }
 
@@ -1011,9 +1011,9 @@ mod tests {
         autofill: SettingValue,
     ) -> DiagnosisReport {
         DiagnosisReport {
-            schema_version: 1,
+            schema_version: 2,
             mode: DiagnosisMode::Real,
-            status: DiagnosisStatus::Complete,
+            completeness: DiagnosisCompleteness::Complete,
             observed_at_unix_ms: 0,
             adb: test_adb(),
             device: DeviceInfo {

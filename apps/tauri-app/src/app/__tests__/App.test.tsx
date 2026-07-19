@@ -1,6 +1,6 @@
 import { render } from "@solidjs/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
+import { App } from "../App";
 
 const api = vi.hoisted(() => ({
 	getAppInfo: vi.fn(),
@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({
 	selectAdbCandidate: vi.fn(),
 	chooseAdbExecutable: vi.fn(),
 	listDevices: vi.fn(),
-	inspectDevice: vi.fn(),
+	resolveDiagnosis: vi.fn(),
 	preparePin: vi.fn(),
 	createPinPlan: vi.fn(),
 	executePinPlan: vi.fn(),
@@ -17,20 +17,52 @@ const api = vi.hoisted(() => ({
 	prepareRestore: vi.fn(),
 	createRestorePlan: vi.fn(),
 	executeRestorePlan: vi.fn(),
-	discardChangePlan: vi.fn(),
+	cancelChangePlan: vi.fn(),
+	authorizePinPreview: vi.fn(),
 	setOnboardingStatus: vi.fn(),
 	setThemePreference: vi.fn(),
 	getDemoFixture: vi.fn(),
+	getSessionContext: vi.fn(),
 }));
 
 const tutorial = vi.hoisted(() => ({
 	startTutorial: vi.fn(),
 	stopTutorial: vi.fn(),
 	advanceTutorial: vi.fn(),
+	advanceTutorialFromInteraction: vi.fn(),
 }));
 
-vi.mock("../lib/tauri", () => api);
-vi.mock("./tutorial", () => tutorial);
+vi.mock("../tutorial", () => tutorial);
+
+const appGateway = {
+	getAppInfo: (...args: []) => api.getAppInfo(...args),
+	getStartupState: (...args: []) => api.getStartupState(...args),
+	setOnboardingStatus: (...args: ["completed" | "skipped"]) =>
+		api.setOnboardingStatus(...args),
+	setThemePreference: (...args: ["system" | "light" | "dark"]) =>
+		api.setThemePreference(...args),
+	getDemoFixture: (...args: []) => api.getDemoFixture(...args),
+};
+
+const deviceGateway = {
+	getSessionContext: (...args: []) => api.getSessionContext(...args),
+	discoverAdb: (...args: []) => api.discoverAdb(...args),
+	selectAdbCandidate: (...args: [string, string]) =>
+		api.selectAdbCandidate(...args),
+	chooseAdbExecutable: (...args: []) => api.chooseAdbExecutable(...args),
+	listDevices: (...args: [string]) => api.listDevices(...args),
+	resolveDiagnosis: (...args: [string, string]) =>
+		api.resolveDiagnosis(...args),
+	preparePin: (...args: [string, string, boolean]) => api.preparePin(...args),
+	authorizePinPreview: (...args: [string]) => api.authorizePinPreview(...args),
+	createPinPlan: (...args: [string]) => api.createPinPlan(...args),
+	executePinPlan: (...args: [string]) => api.executePinPlan(...args),
+	listSnapshots: (...args: []) => api.listSnapshots(...args),
+	prepareRestore: (...args: [string, string]) => api.prepareRestore(...args),
+	createRestorePlan: (...args: [string]) => api.createRestorePlan(...args),
+	executeRestorePlan: (...args: [string]) => api.executeRestorePlan(...args),
+	cancelChangePlan: (...args: [string]) => api.cancelChangePlan(...args),
+};
 
 async function flushPromises() {
 	await new Promise((resolve) => setTimeout(resolve, 0));
@@ -63,9 +95,9 @@ const device = {
 };
 
 const report = {
-	schemaVersion: 1,
+	schemaVersion: 2,
 	mode: "real" as const,
-	status: "complete" as const,
+	completeness: "complete" as const,
 	observedAtUnixMs: 1_788_220_800_000,
 	adb,
 	device: {
@@ -144,25 +176,32 @@ describe("App", () => {
 		tutorial.advanceTutorial.mockReset();
 		api.getAppInfo.mockResolvedValue({
 			productName: "Android Credential Provider Fixer",
-			version: "0.1.0-alpha.3",
+			version: "0.1.0-alpha.5",
 			developmentPhase: "phase-2-verified-changes",
 			adbReadOperationsEnabled: true,
 			adbWriteOperationsEnabled: true,
 		});
 		api.getStartupState.mockResolvedValue({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			onboardingVersion: 2,
 			onboardingStatus: "skipped",
 			themePreference: "system",
-			selectedAdb: null,
+			adbSelection: null,
 			preferenceWarning: null,
 		});
+		api.getSessionContext.mockResolvedValue({
+			schemaVersion: 2,
+			sessionRevision: 0,
+			selectionId: null,
+			enumerationId: null,
+			latestDiagnosisId: null,
+		});
 		api.setOnboardingStatus.mockResolvedValue({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			onboardingVersion: 2,
 			onboardingStatus: "skipped",
 			themePreference: "system",
-			selectedAdb: null,
+			adbSelection: null,
 			preferenceWarning: null,
 		});
 		container = document.createElement("div");
@@ -175,13 +214,16 @@ describe("App", () => {
 	});
 
 	it("renders the localized welcome page and switches to Chinese", async () => {
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		expect(container.textContent).toContain(
 			"Make hidden Credential Provider state visible",
 		);
-		expect(container.textContent).toContain("0.1.0-alpha.3");
+		expect(container.textContent).toContain("0.1.0-alpha.5");
 		const select = container.querySelector("select");
 		expect(select).not.toBeNull();
 		if (!select) {
@@ -197,22 +239,50 @@ describe("App", () => {
 
 	it("walks through explicit ADB and device selection", async () => {
 		api.discoverAdb.mockResolvedValue({
-			schemaVersion: 1,
+			schemaVersion: 2,
+			discoveryId: "discovery-1",
+			sessionRevision: 1,
+			completedAtUnixMs: 1,
 			candidates: [{ candidateId: "adb-1-0", source: "path", adb }],
 			failures: [],
 		});
-		api.selectAdbCandidate.mockResolvedValue(adb);
+		api.selectAdbCandidate.mockResolvedValue({
+			schemaVersion: 2,
+			selectionId: "selection-1",
+			discoveryId: "discovery-1",
+			sessionRevision: 2,
+			selectedAtUnixMs: 1,
+			adb,
+		});
 		api.listDevices.mockResolvedValue({
-			schemaVersion: 1,
+			schemaVersion: 2,
+			enumerationId: "enumeration-1",
+			selectionId: "selection-1",
+			sessionRevision: 2,
 			observedAtUnixMs: 1,
 			devices: [device],
 		});
-		api.inspectDevice.mockResolvedValue({
-			schemaVersion: 1,
+		api.resolveDiagnosis.mockResolvedValue({
+			schemaVersion: 2,
+			diagnosisId: "diagnosis-1",
+			sessionRevision: 2,
+			enumerationId: "enumeration-1",
+			deviceId: "device-1-0",
+			startedAtUnixMs: 1,
+			resolvedAtUnixMs: 2,
 			report,
-			providers: [{ ...report.providers[0], providerId: "provider-1-0" }],
+			providers: [
+				{
+					...report.providers[0],
+					providerId: "provider-1-0",
+					diagnosisId: "diagnosis-1",
+				},
+			],
 		});
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		clickButton(container, "Start diagnosis");
@@ -243,9 +313,131 @@ describe("App", () => {
 		clickButton(container, "Run diagnosis");
 		await flushPromises();
 
-		expect(api.inspectDevice).toHaveBeenCalledWith("device-1-0");
+		expect(api.resolveDiagnosis).toHaveBeenCalledWith(
+			"enumeration-1",
+			"device-1-0",
+		);
 		expect(container.textContent).toContain("com.example/.Provider");
 		expect(container.textContent).toContain("No modeled state inconsistency");
+	});
+
+	it("rebases a saved ADB selection onto the latest discovery entity", async () => {
+		api.getStartupState.mockResolvedValue({
+			schemaVersion: 2,
+			onboardingVersion: 2,
+			onboardingStatus: "skipped",
+			themePreference: "system",
+			adbSelection: {
+				schemaVersion: 2,
+				selectionId: "selection-old",
+				discoveryId: null,
+				sessionRevision: 1,
+				selectedAtUnixMs: 1,
+				adb,
+			},
+			preferenceWarning: null,
+		});
+		api.discoverAdb.mockResolvedValue({
+			schemaVersion: 2,
+			discoveryId: "discovery-new",
+			sessionRevision: 2,
+			completedAtUnixMs: 2,
+			candidates: [{ candidateId: "adb-new", source: "saved", adb }],
+			failures: [],
+		});
+		api.selectAdbCandidate.mockResolvedValue({
+			schemaVersion: 2,
+			selectionId: "selection-new",
+			discoveryId: "discovery-new",
+			sessionRevision: 3,
+			selectedAtUnixMs: 3,
+			adb,
+		});
+		api.listDevices.mockResolvedValue({
+			schemaVersion: 2,
+			enumerationId: "enumeration-new",
+			selectionId: "selection-new",
+			sessionRevision: 4,
+			observedAtUnixMs: 4,
+			devices: [device],
+		});
+
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
+		await flushPromises();
+		clickButton(container, "Start diagnosis");
+		await flushPromises();
+		await flushPromises();
+
+		expect(api.selectAdbCandidate).toHaveBeenCalledWith(
+			"discovery-new",
+			"adb-new",
+		);
+		expect(container.querySelector("[data-tour='adb-card']")).not.toBeNull();
+
+		clickButton(container, "Continue to devices");
+		await flushPromises();
+		expect(api.listDevices).toHaveBeenCalledWith("selection-new");
+		expect(container.textContent).not.toContain("ADB_SELECTION_STALE");
+		expect(container.textContent).toContain("Choose a device");
+	});
+
+	it("automatically revalidates ADB when the backend rejects a stale selection", async () => {
+		api.discoverAdb.mockResolvedValue({
+			schemaVersion: 2,
+			discoveryId: "discovery-1",
+			sessionRevision: 1,
+			completedAtUnixMs: 1,
+			candidates: [{ candidateId: "adb-1", source: "path", adb }],
+			failures: [],
+		});
+		api.selectAdbCandidate
+			.mockResolvedValueOnce({
+				schemaVersion: 2,
+				selectionId: "selection-1",
+				discoveryId: "discovery-1",
+				sessionRevision: 2,
+				selectedAtUnixMs: 2,
+				adb,
+			})
+			.mockResolvedValueOnce({
+				schemaVersion: 2,
+				selectionId: "selection-2",
+				discoveryId: "discovery-1",
+				sessionRevision: 4,
+				selectedAtUnixMs: 4,
+				adb,
+			});
+		api.listDevices.mockRejectedValue({
+			code: "ADB_SELECTION_STALE",
+			message: "the selected ADB candidate is no longer available",
+		});
+
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
+		await flushPromises();
+		clickButton(container, "Start diagnosis");
+		await flushPromises();
+		clickButton(container, "Use this ADB");
+		await flushPromises();
+		clickButton(container, "Continue to devices");
+		await flushPromises();
+		await flushPromises();
+
+		expect(api.discoverAdb).toHaveBeenCalledTimes(2);
+		expect(api.selectAdbCandidate).toHaveBeenLastCalledWith(
+			"discovery-1",
+			"adb-1",
+		);
+		expect(container.textContent).not.toContain("ADB_SELECTION_STALE");
+		const selectedButton = [...container.querySelectorAll("button")].find(
+			(item) => item.textContent?.includes("Selected"),
+		);
+		expect(selectedButton?.disabled).toBe(true);
 	});
 
 	it("runs the demo without live discovery or inspection calls", async () => {
@@ -259,11 +451,19 @@ describe("App", () => {
 			},
 			report: { ...report, mode: "demo" },
 		});
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		clickButton(container, "Explore simulated demo");
 		await flushPromises();
+		expect(
+			[...container.querySelectorAll("button")].some((item) =>
+				item.textContent?.includes("Exit demo"),
+			),
+		).toBe(true);
 		clickButton(container, "Continue to devices");
 		await flushPromises();
 		clickButton(container, "Inspect this device");
@@ -283,7 +483,104 @@ describe("App", () => {
 		expect(container.textContent).toContain("Simulated mode");
 		expect(api.discoverAdb).not.toHaveBeenCalled();
 		expect(api.listDevices).not.toHaveBeenCalled();
-		expect(api.inspectDevice).not.toHaveBeenCalled();
+		expect(api.resolveDiagnosis).not.toHaveBeenCalled();
+
+		clickButton(container, "Start tutorial");
+		await flushPromises();
+		expect(container.textContent).toContain("Restart the guided demo?");
+		clickButton(container, "Stay here");
+		await flushPromises();
+		expect(container.textContent).toContain("Diagnosis results");
+		expect(tutorial.startTutorial).not.toHaveBeenCalled();
+
+		const previousScope = container
+			.querySelector("[data-session-scope]")
+			?.getAttribute("data-session-scope");
+		clickButton(container, "Start tutorial");
+		await flushPromises();
+		clickButton(container, "Restart tutorial");
+		await vi.waitFor(() =>
+			expect(tutorial.startTutorial).toHaveBeenCalledOnce(),
+		);
+		expect(
+			container
+				.querySelector("[data-session-scope]")
+				?.getAttribute("data-session-scope"),
+		).not.toBe(previousScope);
+		expect(container.querySelector("[data-tour='adb-card']")).not.toBeNull();
+		expect(
+			container.querySelector("[data-tour='continue-adb']"),
+		).not.toBeNull();
+		expect(container.textContent).not.toContain("Diagnosis results");
+
+		clickButton(container, "Exit demo");
+		await flushPromises();
+		expect(container.textContent).not.toContain("Simulated mode");
+		expect(container.textContent).toContain(
+			"Make hidden Credential Provider state visible",
+		);
+	});
+
+	it("confirms before replacing a live workflow with the guided demo", async () => {
+		api.discoverAdb.mockResolvedValue({
+			schemaVersion: 2,
+			discoveryId: "discovery-live",
+			sessionRevision: 1,
+			completedAtUnixMs: 1,
+			candidates: [{ candidateId: "adb-live", source: "path", adb }],
+			failures: [],
+		});
+		api.getDemoFixture.mockResolvedValue({
+			schemaVersion: 1,
+			simulated: true,
+			adb,
+			devices: {
+				observedAtUnixMs: 1,
+				devices: [{ ...device, deviceId: undefined }],
+			},
+			report: { ...report, mode: "demo" },
+		});
+		tutorial.startTutorial.mockImplementationOnce(() => {
+			expect(
+				document.querySelector("[data-tour='demo-banner']"),
+			).not.toBeNull();
+		});
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
+		await flushPromises();
+
+		clickButton(container, "Start diagnosis");
+		await vi.waitFor(() => {
+			const button = [...container.querySelectorAll("button")].find((item) =>
+				item.textContent?.includes("Start tutorial"),
+			);
+			expect(button?.disabled).toBe(false);
+		});
+		clickButton(container, "Start tutorial");
+		await flushPromises();
+
+		expect(container.textContent).toContain("Switch to the guided demo?");
+		expect(api.getDemoFixture).not.toHaveBeenCalled();
+		expect(container.textContent).not.toContain("Simulated mode");
+
+		clickButton(container, "Stay here");
+		await flushPromises();
+		expect(container.textContent).not.toContain("Switch to the guided demo?");
+		expect(container.textContent).toContain(
+			"Select a validated ADB installation",
+		);
+
+		clickButton(container, "Start tutorial");
+		await flushPromises();
+		clickButton(container, "Switch and start tutorial");
+		await vi.waitFor(() =>
+			expect(tutorial.startTutorial).toHaveBeenCalledOnce(),
+		);
+
+		expect(api.getDemoFixture).toHaveBeenCalledOnce();
+		expect(container.textContent).toContain("Simulated mode");
 	});
 
 	it("lets tutorial navigation move forward and backward across views", async () => {
@@ -354,11 +651,23 @@ describe("App", () => {
 			pinOutcome,
 			snapshots: { schemaVersion: 1, snapshots: [snapshot], warnings: [] },
 		});
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		clickButton(container, "Start tutorial");
-		await flushPromises();
+		await vi.waitFor(() =>
+			expect(
+				tutorial.startTutorial,
+				container
+					.querySelector("[data-error-message]")
+					?.getAttribute("data-error-message") ??
+					container.textContent ??
+					"",
+			).toHaveBeenCalledOnce(),
+		);
 		const callbacks = tutorial.startTutorial.mock.calls[0]?.[1] as
 			| { sceneChanged?: (scene: string) => void }
 			| undefined;
@@ -386,14 +695,30 @@ describe("App", () => {
 			["restoreOutcome", "[data-tour='change-outcome']"],
 		] as const) {
 			callbacks?.sceneChanged?.(scene);
-			await flushPromises();
+			await vi.waitFor(() =>
+				expect(
+					container.querySelector(selector),
+					`${scene} target`,
+				).not.toBeNull(),
+			);
+			if (scene === "pinOutcome") {
+				expect(
+					container.querySelector("[data-tour='open-snapshots']"),
+				).not.toBeNull();
+			}
+			if (scene === "pinConfirmation" || scene === "restoreConfirmation") {
+				expect(
+					container.querySelector("[data-tour='device-write-check']"),
+				).not.toBeNull();
+			}
 			expect(
-				container.querySelector(selector),
-				`${scene} target`,
-			).not.toBeNull();
+				[...container.querySelectorAll("button")].some((item) =>
+					item.textContent?.includes("Exit demo"),
+				),
+			).toBe(true);
 		}
 		expect(api.listDevices).not.toHaveBeenCalled();
-		expect(api.inspectDevice).not.toHaveBeenCalled();
+		expect(api.resolveDiagnosis).not.toHaveBeenCalled();
 	});
 
 	it("offers onboarding once and records a skip", async () => {
@@ -405,7 +730,10 @@ describe("App", () => {
 			selectedAdb: null,
 			preferenceWarning: null,
 		});
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		expect(container.textContent).toContain("Learn the workflow?");
@@ -418,7 +746,10 @@ describe("App", () => {
 
 	it("shows an unavailable state when startup IPC fails", async () => {
 		api.getStartupState.mockRejectedValue(new Error("IPC unavailable"));
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		expect(container.textContent).toContain("The local core is unavailable");
@@ -441,7 +772,10 @@ describe("App", () => {
 			selectedAdb: null,
 			preferenceWarning: null,
 		});
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		expect(document.documentElement.dataset.theme).toBe("dark");
@@ -458,14 +792,20 @@ describe("App", () => {
 			code: "PREFERENCE_WRITE_FAILED",
 			message: "Could not save preference.",
 		});
-		dispose = render(() => <App />, container);
+		dispose = render(
+			() => <App appGateway={appGateway} deviceGateway={deviceGateway} />,
+			container,
+		);
 		await flushPromises();
 
 		container.querySelector<HTMLInputElement>('input[value="dark"]')?.click();
 		await flushPromises();
 
 		expect(document.documentElement.dataset.theme).toBe("light");
-		expect(container.textContent).toContain("Could not save preference");
+		expect(container.textContent).toContain(
+			"The application preference could not be saved.",
+		);
+		expect(container.textContent).not.toContain("PREFERENCE_WRITE_FAILED");
 		expect(
 			container.querySelector<HTMLInputElement>('input[value="system"]')
 				?.checked,

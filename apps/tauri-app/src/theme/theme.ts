@@ -1,4 +1,11 @@
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import {
+	type Accessor,
+	createEffect,
+	createMemo,
+	createSignal,
+	onCleanup,
+	type Setter,
+} from "solid-js";
 import { type ThemePreference } from "../lib/tauri";
 
 export type ResolvedTheme = "light" | "dark";
@@ -15,18 +22,40 @@ export function applyTheme(theme: ResolvedTheme) {
 	document.documentElement.style.colorScheme = theme;
 }
 
-export function createThemeController() {
-	const media = window.matchMedia("(prefers-color-scheme: dark)");
-	const [preference, setPreference] = createSignal<ThemePreference>("system");
-	const [systemDark, setSystemDark] = createSignal(media.matches);
-	const resolved = createMemo(() => resolveTheme(preference(), systemDark()));
-	const onSystemThemeChange = (event: MediaQueryListEvent) => {
-		setSystemDark(event.matches);
-	};
+export class ThemeController implements Disposable {
+	readonly preference: Accessor<ThemePreference>;
+	readonly resolved: Accessor<ResolvedTheme>;
+	private readonly setPreferenceState: Setter<ThemePreference>;
+	private readonly media: MediaQueryList;
+	private readonly onSystemThemeChange: (event: MediaQueryListEvent) => void;
+	private disposed = false;
 
-	media.addEventListener("change", onSystemThemeChange);
-	createEffect(resolved, applyTheme);
-	onCleanup(() => media.removeEventListener("change", onSystemThemeChange));
+	constructor() {
+		this.media = window.matchMedia("(prefers-color-scheme: dark)");
+		const [systemDark, setSystemDark] = createSignal(this.media.matches);
+		[this.preference, this.setPreferenceState] =
+			createSignal<ThemePreference>("system");
+		this.resolved = createMemo(() =>
+			resolveTheme(this.preference(), systemDark()),
+		);
+		this.onSystemThemeChange = (event: MediaQueryListEvent) => {
+			setSystemDark(event.matches);
+		};
 
-	return { preference, resolved, setPreference };
+		this.media.addEventListener("change", this.onSystemThemeChange);
+		createEffect(this.resolved, applyTheme);
+		onCleanup(() => this[Symbol.dispose]());
+	}
+
+	setPreference(preference: ThemePreference): void {
+		this.setPreferenceState(preference);
+	}
+
+	[Symbol.dispose](): void {
+		if (this.disposed) {
+			return;
+		}
+		this.disposed = true;
+		this.media.removeEventListener("change", this.onSystemThemeChange);
+	}
 }

@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { translations } from "./translations";
+import { translations } from "../translations";
 
 describe("GUI translations", () => {
 	it("keeps English and Chinese message keys symmetric", () => {
-		expect(Object.keys(translations.zh).sort()).toEqual(
-			Object.keys(translations.en).sort(),
+		const paths = (value: object, prefix = ""): string[] =>
+			Object.entries(value).flatMap(([key, entry]) => {
+				const path = prefix ? `${prefix}.${key}` : key;
+				return typeof entry === "object" && entry !== null
+					? paths(entry, path)
+					: [path];
+			});
+		expect(paths(translations.zh).sort()).toEqual(
+			paths(translations.en).sort(),
 		);
 	});
 

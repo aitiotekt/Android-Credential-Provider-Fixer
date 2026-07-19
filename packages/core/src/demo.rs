@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AndroidUser, ChangeOutcome, ChangeOutcomeStatus, ChangePreview, ChangeStepOutcome,
     ComponentName, ConnectionType, CredentialState, DeviceConnectionState, DeviceInfo, DeviceList,
-    DeviceSummary, DiagnosisMode, DiagnosisReport, DiagnosisStatus, Finding, FindingCode,
+    DeviceSummary, DiagnosisCompleteness, DiagnosisMode, DiagnosisReport, Finding, FindingCode,
     FindingSeverity, ProviderService, SettingMutation, SettingObservation, SettingValue,
     SnapshotInventory, SnapshotStatus, ValidatedAdb, create_change_plan, prepare_pin,
 };
@@ -56,9 +56,9 @@ pub fn demo_fixture() -> DemoFixture {
         "com.x8bit.bitwarden.Autofill.AutofillService",
     );
     let report = DiagnosisReport {
-        schema_version: 1,
+        schema_version: 2,
         mode: DiagnosisMode::Demo,
-        status: DiagnosisStatus::Complete,
+        completeness: DiagnosisCompleteness::Complete,
         observed_at_unix_ms: OBSERVED_AT,
         adb: adb.clone(),
         device: device.clone(),
@@ -114,14 +114,15 @@ pub fn demo_fixture() -> DemoFixture {
         &report,
         &bitwarden_provider,
         false,
-        "demo-preview-pin".to_owned(),
+        crate::DiagnosisId::from("demo-diagnosis"),
+        crate::PreviewId::from("demo-preview-pin"),
         OBSERVED_AT,
     )
     .expect("demo pin preview");
     let (plan, mut snapshot) = create_change_plan(
         &pin_preview,
-        "demo-plan-pin".to_owned(),
-        "demo-snapshot-pin".to_owned(),
+        crate::PlanId::from("demo-plan-pin"),
+        crate::SnapshotId::from("demo-snapshot-pin"),
         OBSERVED_AT,
     )
     .expect("demo pin plan");
@@ -129,7 +130,7 @@ pub fn demo_fixture() -> DemoFixture {
     snapshot.revision = 2;
     snapshot.last_observed = Some(plan.after.clone());
     let pin_outcome = ChangeOutcome {
-        schema_version: 1,
+        schema_version: 2,
         plan_id: plan.plan_id,
         snapshot_id: plan.snapshot_id,
         status: ChangeOutcomeStatus::Applied,
@@ -142,7 +143,7 @@ pub fn demo_fixture() -> DemoFixture {
         observed: plan.after,
     };
     DemoFixture {
-        schema_version: 1,
+        schema_version: 2,
         simulated: true,
         adb,
         devices: DeviceList {
@@ -162,7 +163,7 @@ pub fn demo_fixture() -> DemoFixture {
         pin_preview,
         pin_outcome,
         snapshots: SnapshotInventory {
-            schema_version: 1,
+            schema_version: 2,
             snapshots: vec![snapshot],
             warnings: Vec::new(),
         },

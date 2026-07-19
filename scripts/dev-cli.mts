@@ -33,7 +33,7 @@ type JavaScriptPackage = {
 };
 
 const repoRoot = resolve(import.meta.dirname, "..");
-const expectedVersion = "0.1.0-alpha.3";
+const expectedVersion = "0.1.0-alpha.5";
 const genericIconSource = "assets/icons/app-icon.png";
 const macosLegacyIconSource = "assets/icons/app-icon-macos-legacy.png";
 const generatedIconDirectory = "apps/tauri-app/src-tauri/icons";
@@ -483,21 +483,23 @@ function checkSecurity(): void {
 		].map((match) => match[1]);
 	});
 	const expectedCommands = [
+		"authorize_pin_preview",
+		"cancel_change_plan",
 		"choose_adb_executable",
 		"create_pin_plan",
 		"create_restore_plan",
-		"discard_change_plan",
 		"discover_adb",
 		"execute_pin_plan",
 		"execute_restore_plan",
 		"get_app_info",
 		"get_demo_fixture",
+		"get_session_context",
 		"get_startup_state",
-		"inspect_device",
 		"list_devices",
 		"list_snapshots",
 		"prepare_pin",
 		"prepare_restore",
+		"resolve_diagnosis",
 		"select_adb_candidate",
 		"set_onboarding_status",
 		"set_theme_preference",
@@ -578,9 +580,249 @@ function checkSecurity(): void {
 	);
 }
 
+function checkArchitecture(): void {
+	const appPackage = readJson<{
+		dependencies?: Record<string, string>;
+		devDependencies?: Record<string, string>;
+	}>("apps/tauri-app/package.json");
+	const dependencies = appPackage.dependencies ?? {};
+	const devDependencies = appPackage.devDependencies ?? {};
+	if (dependencies["core-js"] !== "3.50.0") {
+		throw new Error(
+			"The frontend must pin core-js 3.50.0 for its explicit resource management polyfills.",
+		);
+	}
+	for (const [dependency, expected] of [
+		["@swc/core", "1.16.1"],
+		["unplugin-swc", "1.5.11"],
+	] as const) {
+		if (devDependencies[dependency] !== expected) {
+			throw new Error(
+				`The frontend must pin ${dependency} ${expected} for its compatibility transform.`,
+			);
+		}
+	}
+	for (const forbidden of [
+		"reflect-metadata",
+		"@ark-ui/solid",
+		"@park-ui/solid",
+		"@pandacss/dev",
+	]) {
+		if (forbidden in dependencies) {
+			throw new Error(
+				`Forbidden frontend architecture dependency: ${forbidden}`,
+			);
+		}
+	}
+
+	const viteConfig = readFileSync(
+		resolve(repoRoot, "apps/tauri-app/vite.config.ts"),
+		"utf8",
+	);
+	const vitestConfig = readFileSync(
+		resolve(repoRoot, "apps/tauri-app/vitest.config.ts"),
+		"utf8",
+	);
+	const targetModule = readFileSync(
+		resolve(repoRoot, "apps/tauri-app/config/webview-targets.ts"),
+		"utf8",
+	);
+	const swcModule = readFileSync(
+		resolve(repoRoot, "apps/tauri-app/config/swc-compat.ts"),
+		"utf8",
+	);
+	for (const target of ['chrome: "111"', 'edge: "111"', 'safari: "16.4"']) {
+		if (!targetModule.includes(target)) {
+			throw new Error(`Shared WebView engine target is missing ${target}.`);
+		}
+	}
+	if (targetModule.includes('"es2022"')) {
+		throw new Error(
+			"Do not mix an ECMAScript edition into the concrete WebView engine targets.",
+		);
+	}
+	for (const [path, source] of [
+		["apps/tauri-app/vite.config.ts", viteConfig],
+		["apps/tauri-app/vitest.config.ts", vitestConfig],
+	] as const) {
+		if (!source.includes('from "./config/swc-compat.ts"')) {
+			throw new Error(`The shared SWC transform is not used by ${path}.`);
+		}
+		if (!source.includes("createSwcCompatPlugin()")) {
+			throw new Error(
+				`The SWC compatibility plugin is not registered by ${path}.`,
+			);
+		}
+		if (/\boxc\s*:/.test(source)) {
+			throw new Error(
+				`Do not configure Vite's source Oxc transform alongside unplugin-swc: ${path}`,
+			);
+		}
+	}
+	if (!/build:\s*\{\s*target:\s*WEBVIEW_TARGETS/s.test(viteConfig)) {
+		throw new Error("Vite build does not use the shared WebView target.");
+	}
+	if (!viteConfig.includes('from "./config/webview-targets.ts"')) {
+		throw new Error("Vite build does not import the shared WebView target.");
+	}
+	for (const required of [
+		'import { WEBVIEW_SWC_TARGETS } from "./webview-targets.ts"',
+		"explicitResourceManagement: true",
+		"targets: WEBVIEW_SWC_TARGETS",
+		'mode: "usage"',
+		'coreJs: "3.50"',
+		"shippedProposals: true",
+	]) {
+		if (!swcModule.includes(required)) {
+			throw new Error(
+				`The shared SWC compatibility config is missing: ${required}`,
+			);
+		}
+	}
+	for (const required of [
+		"export const WEBVIEW_SWC_TARGETS = WEBVIEW_ENGINE_TARGETS",
+		"Object.entries(WEBVIEW_ENGINE_TARGETS)",
+	]) {
+		if (!targetModule.includes(required)) {
+			throw new Error(
+				`WebView targets must derive Vite and SWC forms from one engine map: ${required}`,
+			);
+		}
+	}
+	if (/generatedCode\s*:/.test(viteConfig)) {
+		throw new Error(
+			"Vite already sets Rolldown generatedCode to ES2015; do not duplicate it.",
+		);
+	}
+	if (
+		/rolldownOptions\s*:\s*\{[\s\S]*?transform\s*:\s*\{[\s\S]*?target\s*:/m.test(
+			viteConfig,
+		)
+	) {
+		throw new Error(
+			"Do not bypass Vite's final build target through rolldownOptions.transform.target.",
+		);
+	}
+	const mainSource = readFileSync(
+		resolve(repoRoot, "apps/tauri-app/src/main.tsx"),
+		"utf8",
+	);
+	if (mainSource.includes("explicit-resource-management")) {
+		throw new Error(
+			"Explicit resource management polyfills must be injected by SWC usage analysis, not a manual application entry.",
+		);
+	}
+
+	const frontendSources = filesUnder(
+		"apps/tauri-app/src",
+		new Set([".ts", ".tsx"]),
+	);
+	for (const path of frontendSources) {
+		const source = readFileSync(resolve(repoRoot, path), "utf8");
+		if (
+			!path.includes("/__tests__/") &&
+			/from\s+["'](?:vite|vitest|unplugin-swc|@swc\/core)["']/.test(source)
+		) {
+			throw new Error(
+				`Build and test tooling must stay outside bundled application source: ${path}`,
+			);
+		}
+		if (/\.test\.tsx?$/.test(path) && !path.includes("/__tests__/")) {
+			throw new Error(
+				`Frontend unit tests must live in a module-level __tests__ directory: ${path}`,
+			);
+		}
+		if (
+			(path.startsWith("apps/tauri-app/src/domain/") ||
+				path.startsWith("apps/tauri-app/src/application/")) &&
+			(/export\s+function\s+create\w*Service\b/.test(source) ||
+				/export\s+interface\s+\w*Service\b/.test(source))
+		) {
+			throw new Error(
+				`Stateful application services must use a class, not a closure factory/interface pair: ${path}`,
+			);
+		}
+		if (/\brunInInjectionContext\b|\binject\s*\(/.test(source)) {
+			throw new Error(`Ambient injection context is forbidden: ${path}`);
+		}
+		if (/\bDomainEventBus\b|\bDOMAIN_EVENT_BUS\b/.test(source)) {
+			throw new Error(`Shared frontend event buses are forbidden: ${path}`);
+		}
+		if (
+			path !== "apps/tauri-app/src/domain/event.ts" &&
+			/import\s*\{[^}]*\bSubject\b[^}]*\}\s*from\s*["']rxjs["']/.test(source)
+		) {
+			throw new Error(
+				`RxJS Subject construction is restricted to the DomainEvent extension: ${path}`,
+			);
+		}
+		if (
+			!path.includes("/__tests__/") &&
+			/^\s*(?:public\s+|private\s+|protected\s+)?dispose\s*\(/m.test(source)
+		) {
+			throw new Error(
+				`Owned frontend resources must expose Symbol.dispose instead of an ad-hoc dispose method: ${path}`,
+			);
+		}
+		if (
+			/\bresources\s*(?::\s*DisposableStack|=\s*new\s+DisposableStack|=\s*\w+\.move\(\))/.test(
+				source,
+			)
+		) {
+			throw new Error(
+				`DisposableStack variables must use a singular stack-specific name; resources is reserved for EntityResource state: ${path}`,
+			);
+		}
+		if (
+			source.includes("ReflectiveInjector") &&
+			path !== "apps/tauri-app/src/di/providers.ts"
+		) {
+			throw new Error(
+				`ReflectiveInjector is restricted to DI bootstrap: ${path}`,
+			);
+		}
+		if (/\bsetStep\s*\(/.test(source)) {
+			throw new Error(`Independent workflow navigation is forbidden: ${path}`);
+		}
+		if (/^\s*@(?:Injectable|Inject|Optional|Self|SkipSelf)\b/m.test(source)) {
+			throw new Error(
+				`Decorator-based dependency injection is forbidden: ${path}`,
+			);
+		}
+		if (
+			path !== "apps/tauri-app/src/infrastructure/tauri-gateway.ts" &&
+			(/from\s+["']@tauri-apps\/api\/core["']/.test(source) ||
+				/\binvoke\s*\(/.test(source))
+		) {
+			throw new Error(`Tauri invoke leaked outside the gateway: ${path}`);
+		}
+		if (
+			path.startsWith("apps/tauri-app/src/views/") &&
+			(/from\s+["'][^"']*infrastructure\//.test(source) ||
+				/\bcreateSignal\s*\(/.test(source))
+		) {
+			throw new Error(`A view owns infrastructure or domain signals: ${path}`);
+		}
+		if (
+			(path.startsWith("apps/tauri-app/src/views/") ||
+				path.startsWith("apps/tauri-app/src/app/")) &&
+			(/from\s+["']rxjs["']/.test(source) ||
+				/from\s+["'][^"']*domain\/event["']/.test(source) ||
+				/\.subscribe\s*\(/.test(source))
+		) {
+			throw new Error(
+				`Rendering code must consume state or snapshots instead of domain events: ${path}`,
+			);
+		}
+	}
+	console.log(
+		`Frontend architecture boundary is valid across ${frontendSources.length} source files.`,
+	);
+}
+
 function usage(): never {
 	console.error(
-		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version check | security check",
+		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version check | security check | architecture check",
 	);
 	process.exit(2);
 }
@@ -597,6 +839,8 @@ if (scope === "docs" && action === "sync") {
 	checkVersion();
 } else if (scope === "security" && action === "check") {
 	checkSecurity();
+} else if (scope === "architecture" && action === "check") {
+	checkArchitecture();
 } else if (scope === "icons" && action === "sync") {
 	syncIcons();
 } else if (scope === "icons" && action === "check") {

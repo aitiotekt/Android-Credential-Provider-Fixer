@@ -3,7 +3,7 @@
 Android Credential Provider Fixer is an independent, local-first desktop and command-line project for diagnosing and safely repairing mismatches between Android's visible Credential Provider settings and the framework state used by Credential Manager.
 
 > [!IMPORTANT]
-> Version `0.1.0-alpha.3` adds a narrowly bounded Exclusive Provider Pin and guarded Restore. Both require an explicit target, before/after review, an atomic local snapshot, two GUI confirmations (or CLI `--apply`), a fresh state check, and per-field read-back verification.
+> Version `0.1.0-alpha.5` models discovery, enumeration, diagnosis, preview, plan, execution, and snapshot lifecycles as causally linked entities. The desktop frontend owns those resources in injected domain services, derives its only active view from `WorkflowService`, and isolates Demo in a fixture-only child Injector. A result is usable only in its current session context; bounded Pin and Restore still require an explicit target, review, atomic snapshot, fresh state check, and read-back verification.
 
 ## Why this project exists
 

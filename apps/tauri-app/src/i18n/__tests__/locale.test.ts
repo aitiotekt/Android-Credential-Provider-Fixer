@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveLocale } from "./locale";
+import { resolveLocale } from "../locale";
 
 describe("resolveLocale", () => {
 	it("prefers a saved supported locale", () => {

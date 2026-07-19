@@ -1,5 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-
 export type ErrorEnvelope = {
 	code: string;
 	message: string;
@@ -15,6 +13,17 @@ export type AppInfo = {
 
 export type OnboardingStatus = "completed" | "skipped";
 export type ThemePreference = "system" | "light" | "dark";
+export type EntityId<_Name extends string> = string;
+export type DiscoveryId = EntityId<"Discovery">;
+export type AdbSelectionId = EntityId<"AdbSelection">;
+export type DeviceEnumerationId = EntityId<"DeviceEnumeration">;
+export type DeviceId = EntityId<"Device">;
+export type DiagnosisId = EntityId<"Diagnosis">;
+export type ProviderId = EntityId<"Provider">;
+export type PreviewId = EntityId<"Preview">;
+export type PlanId = EntityId<"Plan">;
+export type ExecutionId = EntityId<"Execution">;
+export type SnapshotId = EntityId<"Snapshot">;
 
 export type ValidatedAdb = {
 	path: string;
@@ -27,7 +36,7 @@ export type StartupState = {
 	onboardingVersion: number;
 	onboardingStatus: OnboardingStatus | null;
 	themePreference: ThemePreference;
-	selectedAdb: ValidatedAdb | null;
+	adbSelection: AdbSelection | null;
 	preferenceWarning: ErrorEnvelope | null;
 };
 
@@ -45,8 +54,20 @@ export type AdbCandidate = {
 
 export type AdbDiscovery = {
 	schemaVersion: number;
+	discoveryId: DiscoveryId;
+	sessionRevision: number;
+	completedAtUnixMs: number;
 	candidates: AdbCandidate[];
 	failures: Array<ErrorEnvelope & { path: string; source: string }>;
+};
+
+export type AdbSelection = {
+	schemaVersion: number;
+	selectionId: AdbSelectionId;
+	discoveryId: DiscoveryId | null;
+	sessionRevision: number;
+	selectedAtUnixMs: number;
+	adb: ValidatedAdb;
 };
 
 export type DeviceState =
@@ -57,7 +78,7 @@ export type DeviceState =
 	| "unknown";
 
 export type DeviceChoice = {
-	deviceId: string;
+	deviceId: DeviceId;
 	serial: string;
 	state: DeviceState;
 	connectionType: "usb" | "wireless" | "unknown";
@@ -70,6 +91,9 @@ export type DeviceChoice = {
 
 export type DeviceList = {
 	schemaVersion: number;
+	enumerationId: DeviceEnumerationId;
+	selectionId: AdbSelectionId;
+	sessionRevision: number;
 	observedAtUnixMs: number;
 	devices: DeviceChoice[];
 };
@@ -94,7 +118,7 @@ export type SettingObservation = {
 export type DiagnosisReport = {
 	schemaVersion: number;
 	mode: "real" | "demo";
-	status: "complete" | "incomplete" | "unsupported";
+	completeness: "complete" | "incomplete" | "unsupported";
 	observedAtUnixMs: number;
 	adb: ValidatedAdb;
 	device: {
@@ -126,13 +150,28 @@ export type DiagnosisReport = {
 };
 
 export type ProviderChoice = DiagnosisReport["providers"][number] & {
-	providerId: string;
+	providerId: ProviderId;
+	diagnosisId: DiagnosisId;
 };
 
-export type InspectionView = {
+export type DiagnosisEntity = {
 	schemaVersion: number;
+	diagnosisId: DiagnosisId;
+	sessionRevision: number;
+	enumerationId: DeviceEnumerationId;
+	deviceId: DeviceId;
+	startedAtUnixMs: number;
+	resolvedAtUnixMs: number;
 	report: DiagnosisReport;
 	providers: ProviderChoice[];
+};
+
+export type SessionContext = {
+	schemaVersion: number;
+	sessionRevision: number;
+	selectionId: AdbSelectionId | null;
+	enumerationId: DeviceEnumerationId | null;
+	latestDiagnosisId: DiagnosisId | null;
 };
 
 export type ManagedSettingValue =
@@ -156,8 +195,11 @@ export type ChangeBlocker =
 	| "NO_CHANGE_REQUIRED";
 export type ChangePreview = {
 	schemaVersion: number;
-	previewId: string;
-	sourceSnapshotId: string | null;
+	previewId: PreviewId;
+	revision: number;
+	status: "ready" | "consumed" | "invalidated";
+	sourceDiagnosisId: DiagnosisId;
+	sourceSnapshotId: SnapshotId | null;
 	kind: ChangeKind;
 	createdAtUnixMs: number;
 	adb: ValidatedAdb;
@@ -174,9 +216,18 @@ export type ChangePreview = {
 
 export type ChangePlan = {
 	schemaVersion: number;
-	planId: string;
-	snapshotId: string;
-	sourceSnapshotId: string | null;
+	planId: PlanId;
+	snapshotId: SnapshotId;
+	sourcePreviewId: PreviewId;
+	sourceDiagnosisId: DiagnosisId;
+	sourceSnapshotId: SnapshotId | null;
+	status:
+		| "ready"
+		| "executing"
+		| "cancelled"
+		| "expired"
+		| "invalidated"
+		| "completed";
 	createdAtUnixMs: number;
 	expiresAtUnixMs: number;
 	kind: ChangeKind;
@@ -189,8 +240,8 @@ export type ChangePlan = {
 
 export type ChangeOutcome = {
 	schemaVersion: number;
-	planId: string;
-	snapshotId: string;
+	planId: PlanId;
+	snapshotId: SnapshotId;
 	status: "applied" | "restored" | "recovered" | "recoveryFailed";
 	completedAtUnixMs: number;
 	steps: Array<{ key: string; success: boolean; error: string | null }>;
@@ -198,17 +249,41 @@ export type ChangeOutcome = {
 	observed: ManagedCredentialState;
 };
 
+export type ChangeExecution = {
+	schemaVersion: number;
+	executionId: ExecutionId;
+	planId: PlanId;
+	sourceDiagnosisId: DiagnosisId;
+	status:
+		| "applied"
+		| "restored"
+		| "recovered"
+		| "recoveryFailed"
+		| "cancelled"
+		| "expired"
+		| "invalidated";
+	writeAttempted: boolean;
+	completedAtUnixMs: number;
+	outcome: ChangeOutcome | null;
+	error: ErrorEnvelope | null;
+	persistenceWarning: ErrorEnvelope | null;
+};
+
 export type SnapshotRecord = {
 	schemaVersion: number;
 	revision: number;
-	snapshotId: string;
-	planId: string;
-	sourceSnapshotId: string | null;
+	snapshotId: SnapshotId;
+	planId: PlanId;
+	sourceDiagnosisId: DiagnosisId;
+	sourceSnapshotId: SnapshotId | null;
 	createdAtUnixMs: number;
 	updatedAtUnixMs: number;
 	status:
 		| "planned"
+		| "executing"
+		| "cancelled"
 		| "expired"
+		| "invalidated"
 		| "applied"
 		| "recovered"
 		| "recoveryFailed"
@@ -243,90 +318,3 @@ export type DemoFixture = {
 	pinOutcome: ChangeOutcome;
 	snapshots: SnapshotInventory;
 };
-
-export function getAppInfo(): Promise<AppInfo> {
-	return invoke<AppInfo>("get_app_info");
-}
-
-export function getStartupState(): Promise<StartupState> {
-	return invoke<StartupState>("get_startup_state");
-}
-
-export function discoverAdb(): Promise<AdbDiscovery> {
-	return invoke<AdbDiscovery>("discover_adb");
-}
-
-export function selectAdbCandidate(candidateId: string): Promise<ValidatedAdb> {
-	return invoke<ValidatedAdb>("select_adb_candidate", { candidateId });
-}
-
-export function chooseAdbExecutable(): Promise<ValidatedAdb | null> {
-	return invoke<ValidatedAdb | null>("choose_adb_executable");
-}
-
-export function listDevices(): Promise<DeviceList> {
-	return invoke<DeviceList>("list_devices");
-}
-
-export function inspectDevice(deviceId: string): Promise<InspectionView> {
-	return invoke<InspectionView>("inspect_device", { deviceId });
-}
-
-export function preparePin(
-	deviceId: string,
-	providerId: string,
-	allowUnparsed: boolean,
-): Promise<ChangePreview> {
-	return invoke<ChangePreview>("prepare_pin", {
-		deviceId,
-		providerId,
-		allowUnparsed,
-	});
-}
-
-export function createPinPlan(previewId: string): Promise<ChangePlan> {
-	return invoke<ChangePlan>("create_pin_plan", { previewId });
-}
-
-export function executePinPlan(planId: string): Promise<ChangeOutcome> {
-	return invoke<ChangeOutcome>("execute_pin_plan", { planId });
-}
-
-export function listSnapshots(): Promise<SnapshotInventory> {
-	return invoke<SnapshotInventory>("list_snapshots");
-}
-
-export function prepareRestore(
-	deviceId: string,
-	snapshotId: string,
-): Promise<ChangePreview> {
-	return invoke<ChangePreview>("prepare_restore", { deviceId, snapshotId });
-}
-
-export function createRestorePlan(previewId: string): Promise<ChangePlan> {
-	return invoke<ChangePlan>("create_restore_plan", { previewId });
-}
-
-export function executeRestorePlan(planId: string): Promise<ChangeOutcome> {
-	return invoke<ChangeOutcome>("execute_restore_plan", { planId });
-}
-
-export function discardChangePlan(planId: string): Promise<void> {
-	return invoke<void>("discard_change_plan", { planId });
-}
-
-export function setOnboardingStatus(
-	status: OnboardingStatus,
-): Promise<StartupState> {
-	return invoke<StartupState>("set_onboarding_status", { status });
-}
-
-export function setThemePreference(
-	preference: ThemePreference,
-): Promise<StartupState> {
-	return invoke<StartupState>("set_theme_preference", { preference });
-}
-
-export function getDemoFixture(): Promise<DemoFixture> {
-	return invoke<DemoFixture>("get_demo_fixture");
-}

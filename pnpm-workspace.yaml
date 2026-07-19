@@ -2,4 +2,6 @@ packages:
   - apps/tauri-app
 
 allowBuilds:
+  '@swc/core': true
+  core-js: false
   esbuild: true

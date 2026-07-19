@@ -1,13 +1,14 @@
 import { render } from "@solidjs/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { translations } from "../i18n/translations";
+import { translations } from "../../i18n/translations";
 import {
 	type AdbDiscovery,
+	type AdbSelection,
 	type DiagnosisReport,
 	type ProviderChoice,
 	type ValidatedAdb,
-} from "../lib/tauri";
-import { adbOptions, isCurrentSoleProvider, ReportPanel } from "./App";
+} from "../../lib/tauri";
+import { adbOptions, isCurrentSoleProvider, ReportPanel } from "../App";
 
 const adb: ValidatedAdb = {
 	path: "/sdk/platform-tools/adb",
@@ -15,8 +16,23 @@ const adb: ValidatedAdb = {
 	version: "Android Debug Bridge version 1.0.41",
 };
 
+function selection(
+	discoveryId: string | null = "discovery-1",
+	sessionRevision = 2,
+): AdbSelection {
+	return {
+		schemaVersion: 2,
+		selectionId: "selection-1",
+		discoveryId,
+		sessionRevision,
+		selectedAtUnixMs: 1,
+		adb,
+	};
+}
+
 const provider: ProviderChoice = {
 	providerId: "provider-1-0",
+	diagnosisId: "diagnosis-1",
 	component: {
 		flattened: "com.example/.Provider",
 		packageName: "com.example",
@@ -38,9 +54,9 @@ function diagnosis(
 	primaryComponents: DiagnosisReport["providers"][number]["component"][] | null,
 ): DiagnosisReport {
 	return {
-		schemaVersion: 1,
+		schemaVersion: 2,
 		mode: "real",
-		status: "complete",
+		completeness: "complete",
 		observedAtUnixMs: 1,
 		adb,
 		device: {
@@ -80,7 +96,10 @@ function diagnosis(
 describe("ADB option presentation", () => {
 	it("reuses a discovered candidate when the resolved path is selected", () => {
 		const discovery: AdbDiscovery = {
-			schemaVersion: 1,
+			schemaVersion: 2,
+			discoveryId: "discovery-1",
+			sessionRevision: 1,
+			completedAtUnixMs: 1,
 			candidates: [
 				{
 					candidateId: "adb-1-0",
@@ -91,7 +110,7 @@ describe("ADB option presentation", () => {
 			failures: [],
 		};
 
-		const options = adbOptions(discovery, adb);
+		const options = adbOptions(discovery, selection());
 		expect(options).toHaveLength(1);
 		expect(options[0]).toMatchObject({
 			adb,
@@ -107,14 +126,17 @@ describe("ADB option presentation", () => {
 			version: adb.version,
 		};
 		const discovery: AdbDiscovery = {
-			schemaVersion: 1,
+			schemaVersion: 2,
+			discoveryId: "discovery-1",
+			sessionRevision: 1,
+			completedAtUnixMs: 1,
 			candidates: [
 				{ candidateId: "adb-1-0", source: "commonLocation", adb: candidate },
 			],
 			failures: [],
 		};
 
-		const options = adbOptions(discovery, adb);
+		const options = adbOptions(discovery, selection(null));
 		expect(options.map((option) => option.adb)).toEqual([adb, candidate]);
 		expect(options[0]?.selected).toBe(true);
 		expect(options[0]?.source).toBeUndefined();
@@ -122,7 +144,10 @@ describe("ADB option presentation", () => {
 
 	it("deduplicates candidates by resolved executable path", () => {
 		const discovery: AdbDiscovery = {
-			schemaVersion: 1,
+			schemaVersion: 2,
+			discoveryId: "discovery-1",
+			sessionRevision: 1,
+			completedAtUnixMs: 1,
 			candidates: [
 				{ candidateId: "adb-1-0", source: "path", adb },
 				{
@@ -135,14 +160,48 @@ describe("ADB option presentation", () => {
 		};
 
 		expect(adbOptions(discovery, undefined)).toHaveLength(1);
-		expect(adbOptions(undefined, adb)).toEqual([
+		expect(adbOptions(undefined, selection(null))).toEqual([
 			{
-				key: `selected:${adb.resolvedPath}`,
+				key: "selected:selection-1",
 				adb,
 				selected: true,
 			},
 		]);
 		expect(adbOptions(undefined, undefined)).toEqual([]);
+	});
+
+	it("does not treat a path match from an older discovery as selected", () => {
+		const discovery: AdbDiscovery = {
+			schemaVersion: 2,
+			discoveryId: "discovery-2",
+			sessionRevision: 3,
+			completedAtUnixMs: 2,
+			candidates: [{ candidateId: "adb-2-0", source: "path", adb }],
+			failures: [],
+		};
+
+		expect(adbOptions(discovery, selection("discovery-1"))).toEqual([
+			{
+				key: "adb-2-0",
+				adb,
+				candidate: discovery.candidates[0],
+				source: "path",
+				selected: false,
+			},
+		]);
+	});
+
+	it("rejects a saved selection whose session revision predates discovery", () => {
+		const discovery: AdbDiscovery = {
+			schemaVersion: 2,
+			discoveryId: "discovery-2",
+			sessionRevision: 3,
+			completedAtUnixMs: 2,
+			candidates: [{ candidateId: "adb-2-0", source: "saved", adb }],
+			failures: [],
+		};
+
+		expect(adbOptions(discovery, selection(null, 1))[0]?.selected).toBe(false);
 	});
 });
 
@@ -192,7 +251,7 @@ describe("current sole credential provider", () => {
 					messages={translations.zh}
 					report={diagnosis([fullProvider], [provider.component])}
 					providers={[provider]}
-					demo={false}
+					busy={false}
 					onPin={onPin}
 					onSnapshots={() => undefined}
 					onRestart={() => undefined}
@@ -227,7 +286,7 @@ describe("current sole credential provider", () => {
 						[provider.component],
 					)}
 					providers={[provider]}
-					demo={false}
+					busy={false}
 					onPin={onPin}
 					onSnapshots={() => undefined}
 					onRestart={() => undefined}

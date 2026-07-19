@@ -8,11 +8,13 @@ use std::{
 };
 
 use acp_fixer_core::{
-    AdbDiscoveryContext, ChangeError, ChangeOutcome, ChangeOutcomeStatus, ChangePreview,
-    DeviceConnectionState, DeviceList, DiagnosisReport, DiagnosisStatus, DiagnosticError,
-    ErrorEnvelope, FindingSeverity, SnapshotInventory, SnapshotStore, ValidatedAdb,
-    canonical_component_name, create_change_plan, demo_fixture, diagnose_device, discover_adb,
-    execute_change, list_devices, mark_source_snapshot_restored, parse_component, prepare_pin,
+    AdbDiscoveryContext, ChangeError, ChangeExecution, ChangeOutcome, ChangeOutcomeStatus,
+    ChangePlan, ChangePreview, DeviceConnectionState, DeviceList, DiagnosisCompleteness,
+    DiagnosisId, DiagnosisReport, DiagnosticError, DiscoveryId, ErrorEnvelope, ExecutionId,
+    ExecutionStatus, FindingSeverity, PlanId, PreviewId, SnapshotId, SnapshotInventory,
+    SnapshotStore, ValidatedAdb, canonical_component_name, create_change_plan, demo_fixture,
+    diagnose_device, discover_adb, execute_change, invalidate_snapshot, list_devices,
+    mark_snapshot_executing, mark_source_snapshot_restored, parse_component, prepare_pin,
     prepare_restore, update_snapshot_from_outcome, validate_adb,
 };
 use acp_fixer_storage::{FileSnapshotStore, default_app_data_dir};
@@ -130,6 +132,9 @@ struct RestoreOptions {
 #[serde(rename_all = "camelCase")]
 struct DevicesDocument<'a> {
     schema_version: u32,
+    discovery_id: DiscoveryId,
+    adb_selection_id: acp_fixer_core::AdbSelectionId,
+    device_enumeration_id: acp_fixer_core::DeviceEnumerationId,
     adb: &'a ValidatedAdb,
     device_list: &'a DeviceList,
 }
@@ -138,6 +143,10 @@ struct DevicesDocument<'a> {
 #[serde(rename_all = "camelCase")]
 struct DiagnosisDocument<'a> {
     schema_version: u32,
+    discovery_id: DiscoveryId,
+    adb_selection_id: acp_fixer_core::AdbSelectionId,
+    device_enumeration_id: acp_fixer_core::DeviceEnumerationId,
+    diagnosis_id: DiagnosisId,
     report: &'a DiagnosisReport,
 }
 
@@ -146,8 +155,10 @@ struct DiagnosisDocument<'a> {
 struct ChangeDocument<'a> {
     schema_version: u32,
     dry_run: bool,
+    diagnosis_id: &'a DiagnosisId,
     preview: &'a ChangePreview,
-    outcome: Option<&'a ChangeOutcome>,
+    plan: Option<&'a ChangePlan>,
+    execution: Option<&'a ChangeExecution>,
 }
 
 #[tokio::main]
@@ -174,7 +185,10 @@ async fn run(cli: Cli) -> Result<u8, CliFailure> {
                 .map_err(|error| CliFailure::new(error, options.json, EXIT_ADB))?;
             if options.json {
                 print_json(&DevicesDocument {
-                    schema_version: 1,
+                    schema_version: 2,
+                    discovery_id: DiscoveryId::from(new_id()),
+                    adb_selection_id: new_id().into(),
+                    device_enumeration_id: new_id().into(),
                     adb: &adb,
                     device_list: &device_list,
                 });
@@ -216,17 +230,23 @@ async fn run(cli: Cli) -> Result<u8, CliFailure> {
                 .map_err(|error| CliFailure::new(error, options.json, EXIT_DEVICE))?;
             if options.json {
                 print_json(&DiagnosisDocument {
-                    schema_version: 1,
+                    schema_version: 2,
+                    discovery_id: DiscoveryId::from(new_id()),
+                    adb_selection_id: new_id().into(),
+                    device_enumeration_id: new_id().into(),
+                    diagnosis_id: DiagnosisId::from(new_id()),
                     report: &report,
                 });
             } else {
                 print_report(&report);
             }
-            Ok(if report.status == DiagnosisStatus::Incomplete {
-                EXIT_DIAGNOSTIC_INCOMPLETE
-            } else {
-                0
-            })
+            Ok(
+                if report.completeness == DiagnosisCompleteness::Incomplete {
+                    EXIT_DIAGNOSTIC_INCOMPLETE
+                } else {
+                    0
+                },
+            )
         }
         Commands::Demo(options) => {
             let demo = demo_fixture();
@@ -267,32 +287,60 @@ async fn run_pin(
         .map_err(|error| CliFailure::diagnostic(error, json, EXIT_DEVICE))?;
     let target = select_provider(&report, options.provider.as_deref(), interactive)
         .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    let diagnosis_id = DiagnosisId::from(new_id());
     let preview = prepare_pin(
         &report,
         &target,
         options.allow_unparsed,
-        new_id(),
+        diagnosis_id.clone(),
+        PreviewId::from(new_id()),
         now_unix_ms(),
     )
     .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
     if !options.apply {
-        print_change(&preview, None, true, json);
+        print_change(&diagnosis_id, &preview, None, None, true, json);
         return Ok(if preview.eligible() { 0 } else { EXIT_PLAN });
     }
-    let (plan, mut snapshot) = create_change_plan(&preview, new_id(), new_id(), now_unix_ms())
-        .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    let (plan, mut snapshot) = create_change_plan(
+        &preview,
+        PlanId::from(new_id()),
+        SnapshotId::from(new_id()),
+        now_unix_ms(),
+    )
+    .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
     let store = snapshot_store();
     store
         .save(&snapshot)
         .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
-    let outcome = execute_change(runner, &plan, now_unix_ms())
-        .await
+    mark_snapshot_executing(&mut snapshot, now_unix_ms())
         .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    store
+        .save(&snapshot)
+        .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    let outcome = match execute_change(runner, &plan, now_unix_ms()).await {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            invalidate_snapshot(&mut snapshot, now_unix_ms(), error.to_string())
+                .map_err(|storage| CliFailure::change(storage, json, EXIT_CHANGE))?;
+            store
+                .save(&snapshot)
+                .map_err(|storage| CliFailure::change(storage, json, EXIT_CHANGE))?;
+            return Err(CliFailure::change(error, json, EXIT_PLAN));
+        }
+    };
     update_snapshot_from_outcome(&mut snapshot, &outcome);
     store
         .save(&snapshot)
         .map_err(|error| CliFailure::change(error, json, EXIT_CHANGE))?;
-    print_change(&preview, Some(&outcome), false, json);
+    let execution = execution_for(&plan, outcome.clone());
+    print_change(
+        &diagnosis_id,
+        &preview,
+        Some(&plan),
+        Some(&execution),
+        false,
+        json,
+    );
     Ok(change_exit_code(&outcome))
 }
 
@@ -320,7 +368,7 @@ async fn run_restore(
     let json = options.diagnose.json;
     let store = snapshot_store();
     let mut source = store
-        .load(&options.snapshot)
+        .load(&SnapshotId::from(options.snapshot.as_str()))
         .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
     let adb = resolve_adb(runner, options.diagnose.adb.as_deref())
         .await
@@ -338,21 +386,45 @@ async fn run_restore(
     let report = diagnose_device(runner, &adb, &serial)
         .await
         .map_err(|error| CliFailure::diagnostic(error, json, EXIT_DEVICE))?;
-    let preview = prepare_restore(&report, &source, new_id(), now_unix_ms())
-        .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    let diagnosis_id = DiagnosisId::from(new_id());
+    let preview = prepare_restore(
+        &report,
+        &source,
+        diagnosis_id.clone(),
+        PreviewId::from(new_id()),
+        now_unix_ms(),
+    )
+    .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
     if !options.apply {
-        print_change(&preview, None, true, json);
+        print_change(&diagnosis_id, &preview, None, None, true, json);
         return Ok(if preview.eligible() { 0 } else { EXIT_PLAN });
     }
-    let (plan, mut restore_snapshot) =
-        create_change_plan(&preview, new_id(), new_id(), now_unix_ms())
-            .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    let (plan, mut restore_snapshot) = create_change_plan(
+        &preview,
+        PlanId::from(new_id()),
+        SnapshotId::from(new_id()),
+        now_unix_ms(),
+    )
+    .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
     store
         .save(&restore_snapshot)
         .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
-    let outcome = execute_change(runner, &plan, now_unix_ms())
-        .await
+    mark_snapshot_executing(&mut restore_snapshot, now_unix_ms())
         .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    store
+        .save(&restore_snapshot)
+        .map_err(|error| CliFailure::change(error, json, EXIT_PLAN))?;
+    let outcome = match execute_change(runner, &plan, now_unix_ms()).await {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            invalidate_snapshot(&mut restore_snapshot, now_unix_ms(), error.to_string())
+                .map_err(|storage| CliFailure::change(storage, json, EXIT_CHANGE))?;
+            store
+                .save(&restore_snapshot)
+                .map_err(|storage| CliFailure::change(storage, json, EXIT_CHANGE))?;
+            return Err(CliFailure::change(error, json, EXIT_PLAN));
+        }
+    };
     update_snapshot_from_outcome(&mut restore_snapshot, &outcome);
     store
         .save(&restore_snapshot)
@@ -364,7 +436,15 @@ async fn run_restore(
             .save(&source)
             .map_err(|error| CliFailure::change(error, json, EXIT_CHANGE))?;
     }
-    print_change(&preview, Some(&outcome), false, json);
+    let execution = execution_for(&plan, outcome.clone());
+    print_change(
+        &diagnosis_id,
+        &preview,
+        Some(&plan),
+        Some(&execution),
+        false,
+        json,
+    );
     Ok(change_exit_code(&outcome))
 }
 
@@ -448,18 +528,42 @@ fn change_exit_code(outcome: &ChangeOutcome) -> u8 {
     }
 }
 
+fn execution_for(plan: &ChangePlan, outcome: ChangeOutcome) -> ChangeExecution {
+    ChangeExecution {
+        schema_version: 2,
+        execution_id: ExecutionId::from(new_id()),
+        plan_id: plan.plan_id.clone(),
+        source_diagnosis_id: plan.source_diagnosis_id.clone(),
+        status: match outcome.status {
+            ChangeOutcomeStatus::Applied => ExecutionStatus::Applied,
+            ChangeOutcomeStatus::Restored => ExecutionStatus::Restored,
+            ChangeOutcomeStatus::Recovered => ExecutionStatus::Recovered,
+            ChangeOutcomeStatus::RecoveryFailed => ExecutionStatus::RecoveryFailed,
+        },
+        write_attempted: true,
+        completed_at_unix_ms: outcome.completed_at_unix_ms,
+        outcome: Some(outcome),
+        error: None,
+        persistence_warning: None,
+    }
+}
+
 fn print_change(
+    diagnosis_id: &DiagnosisId,
     preview: &ChangePreview,
-    outcome: Option<&ChangeOutcome>,
+    plan: Option<&ChangePlan>,
+    execution: Option<&ChangeExecution>,
     dry_run: bool,
     json: bool,
 ) {
     if json {
         print_json(&ChangeDocument {
-            schema_version: 1,
+            schema_version: 2,
             dry_run,
+            diagnosis_id,
             preview,
-            outcome,
+            plan,
+            execution,
         });
         return;
     }
@@ -477,7 +581,7 @@ fn print_change(
     }
     if dry_run {
         println!("\nDRY RUN — no snapshot was created and no setting was changed.");
-    } else if let Some(outcome) = outcome {
+    } else if let Some(outcome) = execution.and_then(|value| value.outcome.as_ref()) {
         println!("Outcome: {:?}", outcome.status);
         println!("Snapshot: {}", outcome.snapshot_id);
     }
@@ -626,7 +730,7 @@ fn print_devices(adb: &ValidatedAdb, devices: &DeviceList) {
 
 fn print_report(report: &DiagnosisReport) {
     println!("Mode: {:?}", report.mode);
-    println!("Status: {:?}", report.status);
+    println!("Status: {:?}", report.completeness);
     println!("ADB: {}", report.adb.path.display());
     println!(
         "Device: {} {} ({}, Android {}, API {})",
@@ -678,7 +782,7 @@ fn print_report(report: &DiagnosisReport) {
         );
     }
     println!(
-        "\nRead-only result: no setting was changed. Registration and state do not prove passkey compatibility."
+        "\nDiagnosis result: no setting was changed. Registration and state do not prove passkey compatibility."
     );
 }
 
@@ -737,7 +841,7 @@ impl CliFailure {
             println!(
                 "{}",
                 serde_json::to_string_pretty(&json!({
-                    "schemaVersion": 1,
+                    "schemaVersion": 2,
                     "error": self.error,
                     "deviceList": self.devices,
                 }))

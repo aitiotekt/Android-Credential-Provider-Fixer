@@ -1,7 +1,7 @@
 import { render } from "@solidjs/web";
 import { afterEach, describe, expect, it } from "vitest";
-import { translations } from "../i18n/translations";
-import { ChangeRow } from "./App";
+import { translations } from "../../i18n/translations";
+import { ChangeRow } from "../App";
 
 describe("change preview layout", () => {
 	let dispose: (() => void) | undefined;
