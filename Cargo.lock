@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acp-fixer-cli"
-version = "0.1.0-alpha.5"
+version = "0.1.0-alpha.6"
 dependencies = [
  "acp-fixer-core",
  "acp-fixer-storage",
@@ -18,7 +18,7 @@ dependencies = [
 
 [[package]]
 name = "acp-fixer-core"
-version = "0.1.0-alpha.5"
+version = "0.1.0-alpha.6"
 dependencies = [
  "async-trait",
  "serde",
@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "acp-fixer-storage"
-version = "0.1.0-alpha.5"
+version = "0.1.0-alpha.6"
 dependencies = [
  "acp-fixer-core",
  "serde_json",
@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "acp-fixer-tauri"
-version = "0.1.0-alpha.5"
+version = "0.1.0-alpha.6"
 dependencies = [
  "acp-fixer-core",
  "acp-fixer-storage",

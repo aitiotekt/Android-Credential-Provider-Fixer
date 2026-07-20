@@ -27,7 +27,7 @@ fn version_matches_workspace_version() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap().trim(),
-        "acp-fixer 0.1.0-alpha.5"
+        format!("acp-fixer {}", env!("CARGO_PKG_VERSION"))
     );
 }
 

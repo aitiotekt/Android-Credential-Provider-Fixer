@@ -1,2 +1,2 @@
 [settings]
-enable_tools = ["just", "node", "pnpm", "prek", "rust"]
+enable_tools = ["cargo:cargo-about", "just", "node", "pnpm", "prek", "rust"]

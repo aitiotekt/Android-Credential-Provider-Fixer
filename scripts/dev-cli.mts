@@ -16,15 +16,44 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import {
+	createManifest,
+	currentRustTarget,
+	stageCli,
+	stageDesktop,
+	verifyArtifacts,
+	verifyPublishedRelease,
+	writePlatformReport,
+} from "./lib/release/artifacts.mts";
+import { checkReleaseAutomation } from "./lib/release/checks.mts";
+import {
+	emitResult,
+	optionsFrom,
+	parseFormat,
+	requiredOption,
+} from "./lib/release/io.mts";
+import { loadMetadata } from "./lib/release/metadata.mts";
+import { generateReleaseNotes } from "./lib/release/notes.mts";
+import {
+	generateNotices,
+	writeTauriReleaseConfig,
+} from "./lib/release/notices.mts";
+import {
+	checkVersion as checkReleaseVersion,
+	setPrereleaseSigning,
+	setVersion,
+} from "./lib/release/version.mts";
+import {
+	ensureReleaseTag,
+	releasePlan,
+	testsPreflight,
+	validateReleaseRef,
+} from "./lib/release/workflow.mts";
 
 type LinkEntry = {
 	link: string;
 	target: string;
 	type: "file" | "dir";
-};
-
-type PackageMetadata = {
-	packages: Array<{ name: string; version: string }>;
 };
 
 type JavaScriptPackage = {
@@ -33,7 +62,6 @@ type JavaScriptPackage = {
 };
 
 const repoRoot = resolve(import.meta.dirname, "..");
-const expectedVersion = "0.1.0-alpha.5";
 const genericIconSource = "assets/icons/app-icon.png";
 const macosLegacyIconSource = "assets/icons/app-icon-macos-legacy.png";
 const generatedIconDirectory = "apps/tauri-app/src-tauri/icons";
@@ -195,37 +223,13 @@ function checkDocs(): void {
 	);
 }
 
-function checkVersion(): void {
-	const rootPackage = readJson<{ version: string }>("package.json");
-	const appPackage = readJson<{ version: string }>(
-		"apps/tauri-app/package.json",
+function checkVersion(format: ReturnType<typeof parseFormat> = "human"): void {
+	const result = checkReleaseVersion();
+	emitResult(
+		{ version: result.version, source_count: result.sourceCount },
+		format,
+		`All ${result.sourceCount} version sources use ${result.version}.`,
 	);
-	const docsPackage = readJson<{ version: string }>("docsite/package.json");
-	const tauriConfig = readJson<{ version: string }>(
-		"apps/tauri-app/src-tauri/tauri.conf.json",
-	);
-	const cargo = JSON.parse(
-		execFileSync("cargo", ["metadata", "--no-deps", "--format-version", "1"], {
-			cwd: repoRoot,
-			encoding: "utf8",
-		}),
-	) as PackageMetadata;
-	const versions = [
-		["root package", rootPackage.version],
-		["Tauri app package", appPackage.version],
-		["docsite package", docsPackage.version],
-		["Tauri config", tauriConfig.version],
-		...cargo.packages.map((pkg) => [`Cargo package ${pkg.name}`, pkg.version]),
-	] as const;
-	const mismatches = versions.filter(
-		([, version]) => version !== expectedVersion,
-	);
-	if (mismatches.length > 0) {
-		throw new Error(
-			`Expected ${expectedVersion}: ${mismatches.map(([name, version]) => `${name}=${version}`).join(", ")}`,
-		);
-	}
-	console.log(`All ${versions.length} version sources use ${expectedVersion}.`);
 }
 
 function assertIconMaster(relativePath: string, requireAlpha: boolean): void {
@@ -822,29 +826,282 @@ function checkArchitecture(): void {
 
 function usage(): never {
 	console.error(
-		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version check | security check | architecture check",
+		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|ensure-tag|notices|tauri-config|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
 	);
 	process.exit(2);
 }
 
-const [scope, action, ...extra] = process.argv.slice(2);
-if (extra.length > 0) {
+async function runRelease(
+	action: string | undefined,
+	arguments_: string[],
+): Promise<void> {
+	if (action === "signing" && arguments_[0] === "set") {
+		const platform = arguments_[1];
+		const policy = arguments_[2];
+		const signingOptions = optionsFrom(arguments_.slice(3));
+		const signingFormat = parseFormat(
+			typeof signingOptions.get("format") === "string"
+				? String(signingOptions.get("format"))
+				: undefined,
+		);
+		if (
+			(platform !== "macos" && platform !== "windows") ||
+			(policy !== "signed" && policy !== "unsigned")
+		) {
+			usage();
+		}
+		const result = setPrereleaseSigning(platform, policy);
+		emitResult(
+			result,
+			signingFormat,
+			`Set ${platform} prerelease signing policy to ${policy}.`,
+		);
+		return;
+	}
+	const options = optionsFrom(arguments_);
+	const format = parseFormat(
+		typeof options.get("format") === "string"
+			? String(options.get("format"))
+			: undefined,
+	);
+	if (action === "preflight") {
+		const result = testsPreflight(
+			requiredOption(options, "source-ref"),
+			requiredOption(options, "source-sha"),
+		);
+		emitResult(
+			result,
+			format,
+			`Release preflight resolved ${result.expected_tag}.`,
+		);
+		return;
+	}
+	if (action === "plan") {
+		const result = releasePlan(
+			requiredOption(options, "source-ref"),
+			requiredOption(options, "source-sha"),
+			requiredOption(options, "tests-run-id"),
+		);
+		emitResult(
+			result,
+			format,
+			`Release plan resolved ${result.expected_tag} (${result.channel}).`,
+		);
+		return;
+	}
+	if (action === "validate-ref") {
+		await validateReleaseRef({
+			sourceRef: requiredOption(options, "source-ref"),
+			sourceSha: requiredOption(options, "source-sha"),
+			testsRunId: requiredOption(options, "tests-run-id"),
+		});
+		emitResult(
+			{ valid: true },
+			format,
+			"Release source and Tests run are valid.",
+		);
+		return;
+	}
+	if (action === "ensure-tag") {
+		const status = ensureReleaseTag(
+			requiredOption(options, "source-sha"),
+			options.get("push") === true,
+		);
+		emitResult({ tag_status: status }, format, `Release tag ${status}.`);
+		return;
+	}
+	if (action === "notices") {
+		const result = generateNotices(requiredOption(options, "output-directory"));
+		emitResult(result, format, "Generated CLI and GUI third-party notices.");
+		return;
+	}
+	if (action === "tauri-config") {
+		const certificateThumbprint = options.get("certificate-thumbprint");
+		const timestampUrl = options.get("timestamp-url");
+		if (
+			(certificateThumbprint === undefined) !==
+			(timestampUrl === undefined)
+		) {
+			throw new Error(
+				"Windows certificate thumbprint and timestamp URL must be supplied together.",
+			);
+		}
+		writeTauriReleaseConfig(
+			requiredOption(options, "notices"),
+			requiredOption(options, "output"),
+			typeof certificateThumbprint === "string" &&
+				typeof timestampUrl === "string"
+				? { certificateThumbprint, timestampUrl }
+				: undefined,
+		);
+		emitResult(
+			{ config_path: requiredOption(options, "output") },
+			format,
+			"Generated release-only Tauri resource config.",
+		);
+		return;
+	}
+	if (action === "stage-cli") {
+		const path = stageCli({
+			target: requiredOption(options, "target"),
+			binary: requiredOption(options, "binary"),
+			notices: requiredOption(options, "notices"),
+			outputDirectory: requiredOption(options, "output-directory"),
+		});
+		emitResult({ artifact_path: path }, format, `Staged ${path}.`);
+		return;
+	}
+	if (action === "stage-current-cli") {
+		const target = currentRustTarget();
+		const executable =
+			process.platform === "win32" ? "acp-fixer.exe" : "acp-fixer";
+		const path = stageCli({
+			target,
+			binary: `target/release/${executable}`,
+			notices: requiredOption(options, "notices"),
+			outputDirectory: requiredOption(options, "output-directory"),
+		});
+		emitResult({ artifact_path: path, target }, format, `Staged ${path}.`);
+		return;
+	}
+	if (action === "stage-desktop") {
+		const path = stageDesktop({
+			target: requiredOption(options, "target"),
+			source: requiredOption(options, "source"),
+			outputDirectory: requiredOption(options, "output-directory"),
+		});
+		emitResult({ artifact_path: path }, format, `Staged ${path}.`);
+		return;
+	}
+	if (action === "platform-report") {
+		writePlatformReport(requiredOption(options, "output"), {
+			fileName: requiredOption(options, "file-name"),
+			kind: requiredOption(options, "kind") as "desktop" | "cli",
+			target: requiredOption(options, "target"),
+			signed: requiredOption(options, "signed") === "true",
+			notarized: requiredOption(options, "notarized") === "true",
+		});
+		emitResult(
+			{ report_path: requiredOption(options, "output") },
+			format,
+			"Wrote platform verification report.",
+		);
+		return;
+	}
+	if (action === "manifest") {
+		const result = createManifest({
+			inputDirectory: requiredOption(options, "input-directory"),
+			outputDirectory: requiredOption(options, "output-directory"),
+			sourceRef: requiredOption(options, "source-ref"),
+			sourceSha: requiredOption(options, "source-sha"),
+			runUrl: requiredOption(options, "run-url"),
+			macosSigning: requiredOption(options, "macos-signing"),
+			windowsSigning: requiredOption(options, "windows-signing"),
+		});
+		emitResult(
+			result,
+			format,
+			`Created manifest for ${result.artifactCount} artifacts.`,
+		);
+		return;
+	}
+	if (action === "verify-artifacts") {
+		const count = verifyArtifacts(requiredOption(options, "manifest"));
+		emitResult(
+			{ artifact_count: count },
+			format,
+			`Verified ${count} release artifacts.`,
+		);
+		return;
+	}
+	if (action === "verify-published") {
+		const count = verifyPublishedRelease(
+			requiredOption(options, "current-directory"),
+			requiredOption(options, "published-directory"),
+		);
+		emitResult(
+			{ asset_count: count },
+			format,
+			`Verified ${count} existing published assets.`,
+		);
+		return;
+	}
+	if (action === "notes") {
+		const path = generateReleaseNotes({
+			manifest: requiredOption(options, "manifest"),
+			output: requiredOption(options, "output"),
+		});
+		emitResult(
+			{ notes_path: path },
+			format,
+			`Generated release notes at ${path}.`,
+		);
+		return;
+	}
+	if (action === "check") {
+		const metadata = loadMetadata();
+		const version = checkReleaseVersion();
+		const workflowCount = checkReleaseAutomation();
+		emitResult(
+			{
+				version: version.version,
+				artifact_count: metadata.release.artifacts.length,
+				automation_file_count: workflowCount,
+			},
+			format,
+			`Release metadata, ${metadata.release.artifacts.length} artifacts, and ${workflowCount} automation files are valid for ${version.version}.`,
+		);
+		return;
+	}
 	usage();
 }
-if (scope === "docs" && action === "sync") {
-	syncDocs();
-} else if (scope === "docs" && action === "check") {
-	checkDocs();
-} else if (scope === "version" && action === "check") {
-	checkVersion();
-} else if (scope === "security" && action === "check") {
-	checkSecurity();
-} else if (scope === "architecture" && action === "check") {
-	checkArchitecture();
-} else if (scope === "icons" && action === "sync") {
-	syncIcons();
-} else if (scope === "icons" && action === "check") {
-	checkIcons();
-} else {
-	usage();
+
+async function main(): Promise<void> {
+	const [scope, action, ...extra] = process.argv.slice(2);
+	if (scope === "docs" && action === "sync" && extra.length === 0) {
+		syncDocs();
+	} else if (scope === "docs" && action === "check" && extra.length === 0) {
+		checkDocs();
+	} else if (scope === "version" && action === "check") {
+		const options = optionsFrom(extra);
+		checkVersion(
+			parseFormat(
+				typeof options.get("format") === "string"
+					? String(options.get("format"))
+					: undefined,
+			),
+		);
+	} else if (scope === "version" && action === "set" && extra.length >= 1) {
+		const [version, ...optionArguments] = extra;
+		const options = optionsFrom(optionArguments);
+		const format = parseFormat(
+			typeof options.get("format") === "string"
+				? String(options.get("format"))
+				: undefined,
+		);
+		const result = setVersion(version);
+		emitResult(
+			result,
+			format,
+			`Updated release-managed manifests to ${version}. Add matching English and Chinese CHANGELOG sections before version check.`,
+		);
+	} else if (scope === "security" && action === "check" && extra.length === 0) {
+		checkSecurity();
+	} else if (
+		scope === "architecture" &&
+		action === "check" &&
+		extra.length === 0
+	) {
+		checkArchitecture();
+	} else if (scope === "icons" && action === "sync" && extra.length === 0) {
+		syncIcons();
+	} else if (scope === "icons" && action === "check" && extra.length === 0) {
+		checkIcons();
+	} else if (scope === "release") {
+		await runRelease(action, extra);
+	} else {
+		usage();
+	}
 }
+
+await main();

@@ -2,7 +2,9 @@
 
 ## 当前状态
 
-`0.1.0-alpha.5` 只允许文档列明的读取，以及对 `credential_service` 和 `credential_service_primary` 的有限写入。写入要求当前诊断实体、与该诊断绑定的五分钟一次性操作计划、schema v2 原子快照、精确状态复核、回读验证和自动恢复；`autofill_service` 始终只读。演示模式的前端会话只能从其子 Injector 解析 fixture gateway，无法回退到真实 Tauri 设备 gateway。
+`0.1.0-alpha.6` 只允许文档列明的读取，以及对 `credential_service` 和 `credential_service_primary` 的有限写入。写入要求当前诊断实体、与该诊断绑定的五分钟一次性操作计划、schema v2 原子快照、精确状态复核、回读验证和自动恢复；`autofill_service` 始终只读。演示模式的前端会话只能从其子 Injector 解析 fixture gateway，无法回退到真实 Tauri 设备 gateway。
+
+发布流水线绝不调用 ADB。稳定版 macOS 和 Windows 产物必须通过平台签名，发布 job 只使用 Environment 范围内的凭据，每个下载产物都有 checksum、manifest 与 GitHub provenance attestation。未签名预发布版必须明确标识，签名失败时绝不静默降级。
 
 后端会拒绝失效的父实体 ID 和迟到的异步结果。首次可能写入前必须先保存 `executing` 快照；取消、过期、状态漂移和执行结果都是终态。旧 v1 快照文件保持原样且不能用于恢复。
 

@@ -2,6 +2,17 @@
 
 All notable project changes are recorded here. The project is pre-release software and does not yet promise a stable diagnostic JSON schema across alpha versions.
 
+## 0.1.0-alpha.6
+
+- Added separate Tests, Release, and Docs workflows with least-privilege permissions and immutable action revisions.
+- Added project release metadata, strict stable/alpha/beta version policy, exact Tests-run/source-SHA validation, and idempotent tag and GitHub Release handling.
+- Added native CLI archives for macOS ARM64/x64, Windows x64, and Linux GNU ARM64/x64, plus Tauri DMGs for both macOS architectures and a Windows x64 NSIS installer.
+- Added explicit per-platform prerelease signing policy. Stable releases require protected approval, Developer ID signing and notarization on macOS, and timestamped Authenticode signing on Windows; signing failures never fall back to unsigned output.
+- Added deterministic staging, SHA-256 checksums, a schema-v1 release manifest, GitHub artifact attestations, and release notes derived from this changelog.
+- Added generated Rust and WebView third-party notices to CLI archives, Tauri release resources, and GitHub Release assets.
+- Added deployment of the bilingual VitePress site to `acp-fixer.aitiotekt.com` with sitemap, per-page canonical URLs, local search, and managed custom-domain configuration.
+- Kept npm/crates publishing, automatic updates, application stores, Linux GUI packages, MSI/MSIX, macOS universal binaries, and all CI/Release ADB activity out of scope.
+
 ## 0.1.0-alpha.5
 
 - Kept pnpm's default mise backend on primary platforms while using its official GitHub release asset only on Intel macOS, avoiding the Aqua registry's missing `darwin/amd64` mapping.

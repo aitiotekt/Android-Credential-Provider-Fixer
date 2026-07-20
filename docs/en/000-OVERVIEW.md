@@ -6,7 +6,7 @@ The project is intentionally local, transparent, and narrow. It discovers ADB su
 
 ## Current release
 
-`0.1.0-alpha.5` retains diagnosis and bounded Provider changes while making every discovery, selection, enumeration, diagnosis, preview, plan, execution, and snapshot relationship explicit. Injected frontend domain services own these resources and derive the only active view; a fixture-only Demo child Injector cannot resolve the live device gateway. GUI IPC, CLI JSON, and snapshots use schema v2; stale entity IDs and late asynchronous results cannot replace the active context. Provider refresh, force-stop, WebAuthn launch, report export, and physical-device writes are not implemented.
+`0.1.0-alpha.6` retains diagnosis and bounded Provider changes while adding reproducible checks, native CLI archives, Tauri installer pipelines, release evidence, and deployment of this bilingual documentation site. Injected frontend domain services still own session entities and derive the only active view; a fixture-only Demo child Injector cannot resolve the live device gateway. Provider refresh, force-stop, WebAuthn launch, report export, and physical-device writes are not implemented.
 
 ## Product boundaries
 

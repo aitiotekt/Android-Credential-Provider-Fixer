@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Rust third-party notices</title></head>
+<body>
+<h1>Rust third-party notices</h1>
+{{#each licenses}}
+<section>
+<h2>{{name}}</h2>
+<p>Used by:</p>
+<ul>{{#each used_by}}<li>{{crate.name}} {{crate.version}}</li>{{/each}}</ul>
+<pre>{{text}}</pre>
+</section>
+{{/each}}
+</body>
+</html>

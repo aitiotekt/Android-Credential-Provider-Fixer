@@ -176,7 +176,7 @@ describe("App", () => {
 		tutorial.advanceTutorial.mockReset();
 		api.getAppInfo.mockResolvedValue({
 			productName: "Android Credential Provider Fixer",
-			version: "0.1.0-alpha.5",
+			version: "test-version",
 			developmentPhase: "phase-2-verified-changes",
 			adbReadOperationsEnabled: true,
 			adbWriteOperationsEnabled: true,
@@ -223,7 +223,7 @@ describe("App", () => {
 		expect(container.textContent).toContain(
 			"Make hidden Credential Provider state visible",
 		);
-		expect(container.textContent).toContain("0.1.0-alpha.5");
+		expect(container.textContent).toContain("test-version");
 		const select = container.querySelector("select");
 		expect(select).not.toBeNull();
 		if (!select) {

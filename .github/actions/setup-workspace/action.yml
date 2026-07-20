@@ -1,20 +1,42 @@
 name: Setup workspace
-description: Install the pinned mise toolchain and pnpm dependencies.
+description: Install the pinned mise toolchain and workspace dependencies.
 
 inputs:
   include-docs:
     description: Install the independent VitePress workspace.
     required: false
     default: "false"
+  cache-mode:
+    description: Use read-write for one cache owner, read-only for consumers, or none.
+    required: false
+    default: read-only
+  cache-key-suffix:
+    description: Workflow-specific cache namespace with exactly one read-write owner.
+    required: false
+    default: workspace
 
 runs:
   using: composite
   steps:
-    - name: Install mise tools
-      uses: jdx/mise-action@v3
+    - name: Setup mise
+      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
       with:
         install: true
         cache: true
+
+    - name: Resolve pnpm store
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(mise exec -- pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore pnpm store
+      if: inputs.cache-mode != 'none'
+      id: pnpm-cache
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key-suffix }}-${{ hashFiles('pnpm-lock.yaml', 'docsite/pnpm-lock.yaml') }}
+        restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache-key-suffix }}-
 
     - name: Install application dependencies
       shell: bash
@@ -24,3 +46,10 @@ runs:
       if: inputs.include-docs == 'true'
       shell: bash
       run: mise exec -- pnpm --dir docsite install --frozen-lockfile
+
+    - name: Save pnpm store
+      if: inputs.cache-mode == 'read-write' && steps.pnpm-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}

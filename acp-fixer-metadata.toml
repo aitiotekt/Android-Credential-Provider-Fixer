@@ -1,0 +1,65 @@
+schema_version = 1
+
+[project]
+version = "0.1.0-alpha.6"
+display_name = "Android Credential Provider Fixer"
+binary_name = "acp-fixer"
+identifier = "com.aitiotekt.acp-fixer"
+repository_url = "https://github.com/aitiotekt/Android-Credential-Provider-Fixer"
+docs_url = "https://acp-fixer.aitiotekt.com/"
+
+[release]
+branch = "release"
+tag_prefix = "v"
+
+[release.prerelease_signing]
+macos = "unsigned"
+windows = "unsigned"
+
+[[release.artifact]]
+kind = "desktop"
+platform = "macos"
+target = "aarch64-apple-darwin"
+extension = "dmg"
+
+[[release.artifact]]
+kind = "desktop"
+platform = "macos"
+target = "x86_64-apple-darwin"
+extension = "dmg"
+
+[[release.artifact]]
+kind = "desktop"
+platform = "windows"
+target = "x86_64-pc-windows-msvc"
+extension = "exe"
+
+[[release.artifact]]
+kind = "cli"
+platform = "macos"
+target = "aarch64-apple-darwin"
+extension = "tar.gz"
+
+[[release.artifact]]
+kind = "cli"
+platform = "macos"
+target = "x86_64-apple-darwin"
+extension = "tar.gz"
+
+[[release.artifact]]
+kind = "cli"
+platform = "windows"
+target = "x86_64-pc-windows-msvc"
+extension = "zip"
+
+[[release.artifact]]
+kind = "cli"
+platform = "linux"
+target = "x86_64-unknown-linux-gnu"
+extension = "tar.gz"
+
+[[release.artifact]]
+kind = "cli"
+platform = "linux"
+target = "aarch64-unknown-linux-gnu"
+extension = "tar.gz"

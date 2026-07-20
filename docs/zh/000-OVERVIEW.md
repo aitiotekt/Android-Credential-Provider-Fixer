@@ -6,7 +6,7 @@ Android Credential Provider Fixer 处理 Android 14 及以上系统中的一种�
 
 ## 当前版本
 
-`0.1.0-alpha.5` 保留诊断与有限的凭据提供方变更，并明确建模每次发现、选择、枚举、诊断、预览、操作计划、执行与快照之间的关系。注入的前端领域服务持有这些资源并派生唯一当前视图；只含 fixture gateway 的演示子 Injector 无法解析真实设备 gateway。GUI IPC、CLI JSON 和快照统一使用 schema v2；失效实体 ID 与迟到的异步结果不能替换当前上下文。凭据提供方刷新、强制停止、WebAuthn 启动、报告导出和物理设备写入尚未实现。
+`0.1.0-alpha.6` 保留诊断与有限的凭据提供方变更，并新增可复现检查、原生 CLI 归档、Tauri 安装包流水线、发布证明与双语文档站部署。注入的前端领域服务仍持有会话实体并派生唯一当前视图；只含 fixture gateway 的演示子 Injector 无法解析真实设备 gateway。凭据提供方刷新、强制停止、WebAuthn 启动、报告导出和物理设备写入尚未实现。
 
 ## 产品边界
 

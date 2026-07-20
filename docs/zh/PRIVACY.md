@@ -8,4 +8,6 @@ Android Credential Provider Fixer 在本地执行所有工作，不收集、传�
 
 应用不包含分析统计或崩溃上传 SDK。网络链接只会在用户主动操作后打开，ADB 永远不会被静默下载。
 
+发布 manifest、checksum、第三方许可证声明和 provenance attestation 只包含构建元数据，不包含设备快照、ADB 路径、设备序列号、诊断或其他用户数据。CI 与发布流水线不会发现或调用 ADB。
+
 [English](../../PRIVACY.md) | [中文](PRIVACY.md)

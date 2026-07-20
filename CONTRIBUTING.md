@@ -27,6 +27,8 @@ Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, and `just
 - Put frontend unit tests in the nearest module-level `__tests__/` directory rather than beside production files. Rust unit and integration tests retain the standard Cargo layout.
 - Update current-state docs with behavior changes; record historical changes in a changelog.
 
-Run `just sync-docs` after changing managed documentation aliases. The command refuses to overwrite ordinary files. Before submitting changes, run `just format` followed by `just verify`.
+Run `just sync-docs` after changing managed documentation aliases. The command refuses to overwrite ordinary files. Before submitting changes, run `just format`, `just verify`, and `just release-check`.
+
+`acp-fixer-metadata.toml` is the release metadata source of truth. Use `node scripts/dev-cli.mts version set VERSION` to update managed manifests and then write matching English and Chinese CHANGELOG sections. Release workflows must remain free of ADB calls. Do not add signing secrets to source files or unsigned fallback behavior to signed jobs.
 
 [English](CONTRIBUTING.md) | [中文](docs/zh/CONTRIBUTING.md)

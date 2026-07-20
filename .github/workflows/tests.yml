@@ -2,9 +2,8 @@ name: Tests
 
 on:
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev, release]
+    tags: ["v*.*.*"]
   pull_request:
   workflow_dispatch:
 
@@ -12,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.workflow }}-${{ github.ref }}
+  group: tests-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -22,38 +21,62 @@ env:
   MISE_ENV: ci
 
 jobs:
+  preflight:
+    name: Release policy preflight
+    runs-on: ubuntu-24.04
+    outputs:
+      release_prepare_candidate: ${{ steps.preflight.outputs.release_prepare_candidate }}
+      source_ref: ${{ steps.preflight.outputs.source_ref }}
+      source_sha: ${{ steps.preflight.outputs.source_sha }}
+      expected_tag: ${{ steps.preflight.outputs.expected_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          cache-mode: read-write
+          cache-key-suffix: tests
+      - name: Resolve release policy
+        id: preflight
+        run: >-
+          mise exec -- node scripts/dev-cli.mts release preflight
+          --source-ref="${GITHUB_REF}" --source-sha="${GITHUB_SHA}"
+          --format=github-output
+
   quality:
-    name: Quality and tests
+    name: Quality, tests, and documentation
+    needs: preflight
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Install Tauri system dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes \
-            build-essential \
-            curl \
-            file \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libxdo-dev \
-            wget
-
+            build-essential curl file libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev wget
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
         with:
           include-docs: "true"
-
+          cache-mode: read-only
+          cache-key-suffix: tests
+      - name: Setup Rust cache
+        uses: ./.github/actions/setup-rust-cache
+        with:
+          shared-key: acp-fixer-${{ runner.os }}-${{ runner.arch }}-debug
+          cache-mode: read-write
       - name: Verify workspace
         run: mise exec -- just verify
 
   desktop-build:
     name: Desktop build (${{ matrix.name }})
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -72,13 +95,80 @@ jobs:
       MISE_ENV: ${{ matrix.mise_environment }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
-
+        with:
+          cache-mode: read-only
+          cache-key-suffix: tests
+      - name: Setup Rust cache
+        uses: ./.github/actions/setup-rust-cache
+        with:
+          shared-key: acp-fixer-${{ runner.os }}-${{ runner.arch }}-debug
+          cache-mode: read-write
       - name: Test portable Rust crates
         run: mise exec -- cargo test -p acp-fixer-core -p acp-fixer-cli
-
       - name: Build unsigned desktop application
         run: mise exec -- just build-tauri
+
+  tests-report:
+    name: Tests report
+    if: always()
+    needs: [preflight, quality, desktop-build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Write report
+        env:
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          DESKTOP_RESULT: ${{ needs.desktop-build.result }}
+        run: |
+          mkdir -p temp/release/tests
+          jq -n \
+            --arg sourceRef "${GITHUB_REF}" \
+            --arg sourceSha "${GITHUB_SHA}" \
+            --arg preflight "${PREFLIGHT_RESULT}" \
+            --arg quality "${QUALITY_RESULT}" \
+            --arg desktop "${DESKTOP_RESULT}" \
+            '{schemaVersion:1,sourceRef:$sourceRef,sourceSha:$sourceSha,jobs:{preflight:$preflight,quality:$quality,desktopBuild:$desktop}}' \
+            > temp/release/tests/report.json
+      - name: Upload report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: tests-workflow-report
+          path: temp/release/tests/report.json
+      - name: Enforce required jobs
+        env:
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          DESKTOP_RESULT: ${{ needs.desktop-build.result }}
+        run: |
+          test "${PREFLIGHT_RESULT}" = success
+          test "${QUALITY_RESULT}" = success
+          test "${DESKTOP_RESULT}" = success
+
+  dispatch-release:
+    name: Dispatch release
+    if: >-
+      github.event_name == 'push' &&
+      needs.tests-report.result == 'success' &&
+      needs.preflight.outputs.release_prepare_candidate == 'true'
+    needs: [preflight, tests-report]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch exact tested source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ needs.preflight.outputs.source_ref }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF_NAME}" \
+            -f source_ref="${SOURCE_REF}" \
+            -f source_sha="${SOURCE_SHA}" \
+            -f tests_run_id="${GITHUB_RUN_ID}"

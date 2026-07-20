@@ -3,7 +3,7 @@
 Android Credential Provider Fixer 是一个独立、默认仅在本地工作的桌面与命令行项目，用于诊断并安全修复 Android 设置界面显示的凭据提供方状态与凭据管理器框架实际状态之间的不一致。
 
 > [!IMPORTANT]
-> `0.1.0-alpha.5` 将发现、枚举、诊断、预览、计划、执行与快照建模为具有因果关系的实体。桌面前端由注入的领域服务持有这些资源，以 `WorkflowService` 派生唯一当前视图，并在只含 fixture gateway 的子 Injector 中隔离演示模式。诊断结果只能在当前会话上下文中使用；有限的“锁定单一凭据提供方”与恢复仍要求明确目标、检查变更、本地原子快照、最新状态复核和逐字段回读验证。
+> `0.1.0-alpha.6` 新增可复现检查、原生 CLI 归档、Tauri 安装包流水线、发布证明与双语文档部署。设备安全边界没有变化：诊断结果只能在当前会话上下文中使用；有限的“锁定单一凭据提供方”与恢复仍要求明确目标、检查变更、本地原子快照、最新状态复核和逐字段回读验证。
 
 ## 项目背景
 
@@ -32,6 +32,7 @@ Android Credential Provider Fixer 是一个独立、默认仅在本地工作的�
 mise trust
 just setup
 just verify
+just release-check
 ```
 
 运行桌面应用或 CLI：
@@ -50,6 +51,18 @@ just dev-cli demo --json
 桌面构建只暴露收敛的发现、检查、opaque plan/snapshot、onboarding 与 Demo IPC。前端不能提交可执行路径、raw component、serial、user ID、setting key 或命令参数，也没有 shell、dialog 或 filesystem plugin 权限。
 
 桌面界面使用 Tailwind CSS 4、本地 Solid 组件原语以及 Slate/Teal 语义 token。外观支持跟随系统、浅色和深色三种模式，偏好保存在应用私有配置文件中；跟随系统时会实时响应操作系统主题变化，不使用 `localStorage` 保存主题。当前要求 macOS 13.3 或更高版本。
+
+## 下载与发布校验
+
+GitHub Releases 提供 macOS Apple Silicon/Intel DMG、Windows x64 NSIS 安装包，以及面向 macOS、Windows 和 Linux GNU x64/ARM64 的原生 CLI 归档。alpha/beta 平台包可能未签名，每个 Release 都会明确标识；稳定版 macOS 和 Windows 产物必须通过平台签名，macOS 产物还必须通过 notarization。
+
+每个 Release 都包含 `SHA256SUMS`、`release-manifest.json`、第三方许可证声明和 GitHub artifact attestations。可使用以下命令验证：
+
+```sh
+gh attestation verify PATH_TO_DOWNLOAD --repo aitiotekt/Android-Credential-Provider-Fixer
+```
+
+应用仍要求用户单独安装 Android SDK Platform-Tools，不捆绑 ADB 或 updater。项目文档发布于 [acp-fixer.aitiotekt.com](https://acp-fixer.aitiotekt.com/)。
 
 图标源按平台区分：`assets/icons/app-icon.png` 用于通用图标和 macOS 26 Icon Composer 图稿，`assets/icons/app-icon-macos-legacy.png` 使用旧版 macOS safe zone，用于 `tauri dev` 显示和旧系统的 `icon.icns` 回退。修改任一主图后运行 `just sync-icons`。
 

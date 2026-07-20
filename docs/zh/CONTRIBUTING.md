@@ -27,6 +27,8 @@ just verify
 - 前端单元测试应放在最近模块层级的 `__tests__/` 目录中，不与生产源码并列。Rust 单元测试和集成测试继续遵循 Cargo 的标准目录结构。
 - 行为变化应更新当前状态文档；历史变化应记录在 changelog 中。
 
-修改受管文档别名后运行 `just sync-docs`；该命令拒绝覆盖普通文件。提交变更前先运行 `just format`，再运行 `just verify`。
+修改受管文档别名后运行 `just sync-docs`；该命令拒绝覆盖普通文件。提交变更前依次运行 `just format`、`just verify` 和 `just release-check`。
+
+`acp-fixer-metadata.toml` 是发布元数据真源。使用 `node scripts/dev-cli.mts version set VERSION` 更新受管 manifest，然后编写对应的英文与中文 CHANGELOG 章节。发布流水线必须保持无 ADB 调用，不得把签名 secret 写入源码，也不得为签名 job 增加未签名降级路径。
 
 [English](../../CONTRIBUTING.md) | [中文](CONTRIBUTING.md)

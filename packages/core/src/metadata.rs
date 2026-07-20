@@ -33,7 +33,7 @@ mod tests {
         let info = app_info();
 
         assert_eq!(info.product_name, PRODUCT_NAME);
-        assert_eq!(info.version, "0.1.0-alpha.5");
+        assert_eq!(info.version, env!("CARGO_PKG_VERSION"));
         assert_eq!(info.development_phase, DEVELOPMENT_PHASE);
         assert!(info.adb_read_operations_enabled);
         assert!(info.adb_write_operations_enabled);

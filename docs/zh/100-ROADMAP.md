@@ -6,6 +6,7 @@
 - 共享 core 契约和有限输出的进程 runner port
 - Tauri Rust 与 Tokio CLI adapter
 - 文档、VitePress、仓库工具和跨平台构建 CI
+- 原生 CLI 归档、Tauri 安装包流水线、发布证明和双语 GitHub Pages 部署
 
 ## Phase 1 — 诊断 — 已完成
 
@@ -34,10 +35,10 @@ Phase 1 不包含 `settings put` 或 `settings delete`。
 - 不暴露任意 package 命令的所选 Provider refresh
 - 固定 WebAuthn 测试 URL
 
-## Phase 4 — 报告与发行
+## Phase 4 — 报告与商店交付
 
 - 脱敏 Markdown 诊断报告
 - Xiaomi/HyperOS 真实设备验收矩阵
-- macOS 与 Windows 签名、GitHub Releases、校验和与商店准备
+- 商店提交准备与最终物理设备发布验收
 
 [English](../en/100-ROADMAP.md) | [中文](100-ROADMAP.md)

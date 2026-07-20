@@ -3,7 +3,7 @@
 Android Credential Provider Fixer is an independent, local-first desktop and command-line project for diagnosing and safely repairing mismatches between Android's visible Credential Provider settings and the framework state used by Credential Manager.
 
 > [!IMPORTANT]
-> Version `0.1.0-alpha.5` models discovery, enumeration, diagnosis, preview, plan, execution, and snapshot lifecycles as causally linked entities. The desktop frontend owns those resources in injected domain services, derives its only active view from `WorkflowService`, and isolates Demo in a fixture-only child Injector. A result is usable only in its current session context; bounded Pin and Restore still require an explicit target, review, atomic snapshot, fresh state check, and read-back verification.
+> Version `0.1.0-alpha.6` adds reproducible checks, native CLI archives, Tauri installer pipelines, release evidence, and bilingual documentation deployment. Device safety is unchanged: a result is usable only in its current session context, and bounded Pin and Restore still require an explicit target, review, atomic snapshot, fresh state check, and read-back verification.
 
 ## Why this project exists
 
@@ -32,6 +32,7 @@ Prerequisites are managed through [mise](https://mise.jdx.dev/): Node 26.1.0, pn
 mise trust
 just setup
 just verify
+just release-check
 ```
 
 Run the desktop app or CLI:
@@ -50,6 +51,18 @@ just dev-cli demo --json
 The desktop build exposes only narrow discovery, inspection, opaque plan/snapshot, onboarding, and Demo IPC commands. The frontend cannot submit executable paths, raw components, serials, user IDs, setting keys, or command arguments, and it has no shell, dialog, or filesystem plugin permission.
 
 The desktop interface uses Tailwind CSS 4 with local Solid component primitives and semantic Slate/Teal tokens. Its System, Light, and Dark appearance preference is stored in the application-private preferences file; System follows the operating-system color scheme without using `localStorage`. The current macOS deployment target is 13.3 or newer.
+
+## Downloads and release verification
+
+GitHub Releases provide macOS Apple Silicon and Intel DMGs, a Windows x64 NSIS installer, and native CLI archives for macOS, Windows, and Linux GNU x64/ARM64. Alpha and beta platform packages may be unsigned; each release identifies that state explicitly. Stable macOS and Windows artifacts must pass platform signing, and macOS artifacts must also pass notarization.
+
+Every release includes `SHA256SUMS`, `release-manifest.json`, third-party notices, and GitHub artifact attestations. Verify an attestation with:
+
+```sh
+gh attestation verify PATH_TO_DOWNLOAD --repo aitiotekt/Android-Credential-Provider-Fixer
+```
+
+The application still requires a separately installed Android SDK Platform-Tools. It does not bundle ADB or an updater. Project documentation is published at [acp-fixer.aitiotekt.com](https://acp-fixer.aitiotekt.com/).
 
 Icon sources are platform-aware: `assets/icons/app-icon.png` feeds the generic assets and the macOS 26 Icon Composer artwork, while `assets/icons/app-icon-macos-legacy.png` uses the legacy macOS safe zone for the `icon.icns` shown by `tauri dev` and older systems. Run `just sync-icons` after changing either master.
 

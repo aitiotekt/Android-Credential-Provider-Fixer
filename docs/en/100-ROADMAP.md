@@ -6,6 +6,7 @@
 - Shared core contracts and bounded process-runner ports
 - Tauri Rust and Tokio CLI adapters
 - Documentation, VitePress, repository tooling, and cross-platform build CI
+- Native CLI archives, Tauri installer workflows, release evidence, and bilingual GitHub Pages deployment
 
 ## Phase 1 — read-only diagnosis — complete
 
@@ -34,10 +35,10 @@ Phase 1 contains no `settings put` or `settings delete`.
 - Selected-provider refresh without arbitrary package commands
 - Fixed WebAuthn test URL
 
-## Phase 4 — reports and releases
+## Phase 4 — reports and store delivery
 
 - Redacted Markdown diagnostics
 - Real-device Xiaomi/HyperOS acceptance matrix
-- macOS and Windows signing, GitHub Releases, checksums, and store preparation
+- Store submission preparation and final physical-device release qualification
 
 [English](100-ROADMAP.md) | [中文](../zh/100-ROADMAP.md)

@@ -70,6 +70,9 @@ _Single source of truth for agent behavior and project engineering rules._
 - After changing either icon master, run `just sync-icons`; `app-icon-macos-legacy.png` intentionally uses a transparent safe zone for the ICNS used by `tauri dev` and older macOS versions.
 - Before completing an iteration, run formatting, linting, type checking, relevant tests, and builds.
 - CI and normal tests must never discover or invoke a host `adb` binary.
+- `acp-fixer-metadata.toml` is the release metadata and version source of truth. Release policy, artifact names, manifests, notices, and ref validation belong in typed modules under `scripts/lib/release`; workflow YAML coordinates them and must not duplicate their policy.
+- Release branch automation may publish only alpha/beta versions. Stable releases require an exact version tag, protected approval, mandatory macOS/Windows platform signing, and no unsigned fallback. Signing credentials stay in GitHub Environments and never enter source, reports, caches, or artifacts.
+- Every downloadable artifact must be represented in the release manifest, SHA-256 checksums, and GitHub provenance attestations. Release workflows must remain idempotent and must never overwrite mismatched assets in a published release.
 
 ## Documentation
 

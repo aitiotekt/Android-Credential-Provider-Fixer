@@ -98,8 +98,26 @@ function rewriteLocalHref(href: string, sourcePath: string): string {
 export default defineConfig({
 	title: "Android Credential Provider Fixer",
 	description: "Local-first diagnostics for Android Credential Provider state.",
+	base: "/",
 	cleanUrls: true,
 	lastUpdated: true,
+	sitemap: {
+		hostname: "https://acp-fixer.aitiotekt.com",
+	},
+	transformHead({ pageData }) {
+		const route = pageData.relativePath
+			.replace(/(?:^|\/)index\.md$/, "/")
+			.replace(/\.md$/, "");
+		return [
+			[
+				"link",
+				{
+					rel: "canonical",
+					href: new URL(route, "https://acp-fixer.aitiotekt.com/").href,
+				},
+			],
+		];
+	},
 	vite: {
 		resolve: { preserveSymlinks: true },
 	},

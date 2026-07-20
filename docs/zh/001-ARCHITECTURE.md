@@ -34,4 +34,8 @@ IPC schema v2 将 ADB 选择绑定到 Discovery ID，将设备枚举绑定到 AD
 
 子 Session scope 同时是其对象图的 arena 式生命周期边界。服务、自有 Subject、subscription、Solid effect 与教程资源都登记在该 scope 下，并按依赖安全的逆序整体释放；渲染层不持有或逐个清理领域订阅。使用子 Injector 的组件必须位于以 Session scope 身份为 key 的 Solid 边界下，因此替换 scope 会重建所有 Context 使用者，不会让它们继续连接旧工作流对象图。全局教程入口替换当前真实或演示 scope 前必须确认，设备写入期间拒绝切换，并且始终创建新的隔离演示 Session，从第一个工作流视图及其 DOM 目标挂载后启动 Driver.js。教程元数据区分纯说明目标和可操作控件；用户成功操作当前高亮控件后，只有在下一目标挂载时才推进，离开引导路径则先结束 Driver 再继续工作流。锁定操作结果会继续进入快照与还原教程，而不是提前结束。演示标识和退出操作在 session shell 层统一渲染，因此每个模拟流程视图都有一致的退出路径，退出时会释放完整 Demo scope。
 
+## 交付架构
+
+`acp-fixer-metadata.toml` 是版本、发布 target 和预发布签名策略的真源。`scripts/lib/release` 下的类型化模块负责版本/ref 策略、staging、许可证声明、manifest 与幂等决策；GitHub workflow YAML 只负责调度。Tests、Release 和 Docs 使用独立 workflow 与最小权限。发布必须绑定精确的成功 Tests run 与源码 SHA；各平台 job 先上传私有输入，再由唯一汇总 job 验证完整的八产物矩阵，之后才生成 attestation 并发布。稳定版 macOS 和 Windows 产物不能降级为未签名。workflow 与发布工具永不发现或调用 ADB。
+
 [English](../en/001-ARCHITECTURE.md) | [中文](001-ARCHITECTURE.md)

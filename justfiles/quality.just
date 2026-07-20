@@ -28,10 +28,13 @@ sync-icons:
 check-version:
     node scripts/dev-cli.mts version check
 
+release-check:
+    node scripts/dev-cli.mts release check
+
 check-security:
     node scripts/dev-cli.mts security check
 
 check-architecture:
     node scripts/dev-cli.mts architecture check
 
-verify: format-check lint typecheck test build build-docs check-docs check-icons check-version check-security check-architecture
+verify: format-check lint typecheck test build build-docs check-docs check-icons check-version release-check check-security check-architecture

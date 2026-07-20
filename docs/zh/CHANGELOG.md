@@ -2,6 +2,17 @@
 
 项目的重要变化记录在这里。当前仍是预发布软件，不承诺 alpha 版本之间的诊断 JSON schema 保持稳定。
 
+## 0.1.0-alpha.6
+
+- 新增职责独立、最小权限且固定 Action revision 的 Tests、Release 与 Docs workflow。
+- 新增项目发布元数据、严格的 stable/alpha/beta 版本策略、精确 Tests run/源码 SHA 校验，以及幂等 tag 和 GitHub Release 处理。
+- 新增 macOS ARM64/x64、Windows x64、Linux GNU ARM64/x64 原生 CLI 归档，以及两个 macOS 架构的 Tauri DMG 与 Windows x64 NSIS 安装包。
+- 新增按平台区分的预发布签名策略。稳定版必须经过受保护审批，在 macOS 使用 Developer ID 签名与 notarization，在 Windows 使用带时间戳的 Authenticode；签名失败绝不降级为未签名产物。
+- 新增确定性 staging、SHA-256 checksum、schema v1 发布 manifest、GitHub artifact attestation，以及从本变更日志生成的 Release notes。
+- 新增 Rust 与 WebView 第三方许可证声明，并将其纳入 CLI 归档、Tauri release 资源和 GitHub Release assets。
+- 新增双语 VitePress 文档站到 `acp-fixer.aitiotekt.com` 的部署，包含 sitemap、逐页 canonical URL、本地搜索和受管自定义域名配置。
+- npm/crates 发布、自动更新、应用商店、Linux GUI 包、MSI/MSIX、macOS universal binary，以及 CI/Release 中的全部 ADB 活动仍不在当前范围内。
+
 ## 0.1.0-alpha.5
 
 - 主流平台继续使用 mise 为 pnpm 选择的默认 backend，仅在 Intel macOS 上改用 pnpm 官方 GitHub Release 产物，绕过 Aqua registry 缺少 `darwin/amd64` 映射的问题。

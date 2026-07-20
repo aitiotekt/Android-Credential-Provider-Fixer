@@ -8,4 +8,6 @@ The selected ADB path, onboarding status, appearance preference (System, Light, 
 
 The application contains no analytics or crash-upload SDK. Network links are opened only after a user action, and ADB is never downloaded silently.
 
+Release manifests, checksums, third-party notices, and provenance attestations contain build metadata only. They do not contain device snapshots, ADB paths, serials, diagnoses, or other user data. CI and release workflows do not discover or invoke ADB.
+
 [English](PRIVACY.md) | [中文](docs/zh/PRIVACY.md)

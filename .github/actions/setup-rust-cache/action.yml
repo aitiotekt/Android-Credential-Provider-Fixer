@@ -1,0 +1,23 @@
+name: Setup Rust cache
+description: Restore Rust outputs with explicit single-writer ownership.
+
+inputs:
+  shared-key:
+    required: true
+    description: Stable cache scope for this runner and build profile.
+  cache-mode:
+    required: false
+    default: read-only
+    description: Use read-write for one owner, read-only for consumers, or none.
+
+runs:
+  using: composite
+  steps:
+    - name: Restore Rust build cache
+      if: inputs.cache-mode != 'none'
+      uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      with:
+        shared-key: ${{ inputs.shared-key }}
+        cache-workspace-crates: true
+        cache-on-failure: true
+        save-if: ${{ inputs.cache-mode == 'read-write' }}
