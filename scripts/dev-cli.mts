@@ -40,7 +40,7 @@ import {
 } from "./lib/release/notices.mts";
 import {
 	checkVersion as checkReleaseVersion,
-	setPrereleaseSigning,
+	setReleaseSigning,
 	setVersion,
 } from "./lib/release/version.mts";
 import {
@@ -845,16 +845,16 @@ async function runRelease(
 				: undefined,
 		);
 		if (
-			(platform !== "macos" && platform !== "windows") ||
+			platform !== "macos" ||
 			(policy !== "signed" && policy !== "unsigned")
 		) {
 			usage();
 		}
-		const result = setPrereleaseSigning(platform, policy);
+		const result = setReleaseSigning(platform, policy);
 		emitResult(
 			result,
 			signingFormat,
-			`Set ${platform} prerelease signing policy to ${policy}.`,
+			`Set ${platform} release signing policy to ${policy}.`,
 		);
 		return;
 	}
@@ -916,23 +916,9 @@ async function runRelease(
 		return;
 	}
 	if (action === "tauri-config") {
-		const certificateThumbprint = options.get("certificate-thumbprint");
-		const timestampUrl = options.get("timestamp-url");
-		if (
-			(certificateThumbprint === undefined) !==
-			(timestampUrl === undefined)
-		) {
-			throw new Error(
-				"Windows certificate thumbprint and timestamp URL must be supplied together.",
-			);
-		}
 		writeTauriReleaseConfig(
 			requiredOption(options, "notices"),
 			requiredOption(options, "output"),
-			typeof certificateThumbprint === "string" &&
-				typeof timestampUrl === "string"
-				? { certificateThumbprint, timestampUrl }
-				: undefined,
 		);
 		emitResult(
 			{ config_path: requiredOption(options, "output") },
@@ -996,7 +982,6 @@ async function runRelease(
 			sourceSha: requiredOption(options, "source-sha"),
 			runUrl: requiredOption(options, "run-url"),
 			macosSigning: requiredOption(options, "macos-signing"),
-			windowsSigning: requiredOption(options, "windows-signing"),
 		});
 		emitResult(
 			result,

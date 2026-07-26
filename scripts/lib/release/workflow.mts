@@ -86,7 +86,6 @@ export function releasePlan(
 		expected_tag: plan.tag,
 		prerelease: plan.isPrerelease,
 		macos_signing: plan.macosSigning,
-		windows_signing: plan.windowsSigning,
 		requires_stable_approval: plan.requiresStableApproval,
 		may_create_tag: plan.mayCreateTag,
 	};

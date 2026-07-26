@@ -57,6 +57,58 @@ export function checkReleaseAutomation(): number {
 	if (/^\s+(?:push|pull_request|release):\s*$/m.test(release)) {
 		throw new Error("Release workflow must only expose workflow_dispatch.");
 	}
+	const workflow = parse(release) as {
+		jobs: Record<
+			string,
+			{
+				environment?: unknown;
+				if?: string;
+				permissions?: Record<string, string>;
+				steps?: Array<{
+					uses?: string;
+					if?: string;
+					"continue-on-error"?: boolean;
+					with?: Record<string, string>;
+				}>;
+			}
+		>;
+	};
+	const windows = workflow.jobs.windows;
+	const assemble = workflow.jobs.assemble;
+	const attestation = assemble?.steps?.find((step) =>
+		step.uses?.startsWith("actions/attest-build-provenance@"),
+	);
+	if (
+		!windows ||
+		windows.environment ||
+		!windows.if?.includes("needs.stable-approval.result == 'success'") ||
+		/WINDOWS_PFX|WINDOWS_TIMESTAMP|signtool|windows_signing/.test(release)
+	) {
+		throw new Error(
+			"Windows releases must use the approval-gated build without Authenticode credentials.",
+		);
+	}
+	if (
+		!attestation ||
+		attestation.if ||
+		attestation["continue-on-error"] ||
+		assemble.permissions?.["id-token"] !== "write" ||
+		assemble.permissions?.attestations !== "write"
+	) {
+		throw new Error(
+			"Every release channel requires unconditional GitHub provenance attestation.",
+		);
+	}
+	for (const subject of [
+		"*.exe",
+		"*.zip",
+		"SHA256SUMS",
+		"release-manifest.json",
+	]) {
+		if (!attestation.with?.["subject-path"]?.includes(subject)) {
+			throw new Error(`Release attestation is missing ${subject}.`);
+		}
+	}
 	const cname = readFileSync(
 		resolve(REPO_ROOT, "docsite/public/CNAME"),
 		"utf8",

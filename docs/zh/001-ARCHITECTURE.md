@@ -36,6 +36,6 @@ IPC schema v2 将 ADB 选择绑定到 Discovery ID，将设备枚举绑定到 AD
 
 ## 交付架构
 
-`acp-fixer-metadata.toml` 是版本、发布 target 和预发布签名策略的真源。`scripts/lib/release` 下的类型化模块负责版本/ref 策略、staging、许可证声明、manifest 与幂等决策；GitHub workflow YAML 只负责调度。Tests、Release 和 Docs 使用独立 workflow 与最小权限。发布必须绑定精确的成功 Tests run 与源码 SHA；各平台 job 先上传私有输入，再由唯一汇总 job 验证完整的八产物矩阵，之后才生成 attestation 并发布。稳定版 macOS 和 Windows 产物不能降级为未签名。workflow 与发布工具永不发现或调用 ADB。
+`acp-fixer-metadata.toml` 是版本、发布 target 和macOS 签名策略的真源。`scripts/lib/release` 下的类型化模块负责版本/ref 策略、staging、许可证声明、manifest 与幂等决策；GitHub workflow YAML 只负责调度。Tests、Release 和 Docs 使用独立 workflow 与最小权限。发布必须绑定精确的成功 Tests run 与源码 SHA；各平台 job 先上传私有输入，再由唯一汇总 job 验证完整的八产物矩阵，之后才生成 attestation 并发布。稳定版 macOS 必须签名/notarization；Windows 使用单一构建路径，不包含 Authenticode 或 CA 凭据。所有渠道（包括 alpha/beta）必须生成 GitHub Artifact Attestation 和 SHA-256；manifest 的 `signed` 仅表示平台签名，来源证明单独呈现。Windows 稳定版仍需审批，macOS 签名失败绝不降级。workflow 与发布工具永不发现或调用 ADB。
 
 [English](../en/001-ARCHITECTURE.md) | [中文](001-ARCHITECTURE.md)

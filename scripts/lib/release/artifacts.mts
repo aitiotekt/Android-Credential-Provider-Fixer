@@ -12,12 +12,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { writeJson } from "./io.mts";
-import {
-	artifactFileName,
-	loadMetadata,
-	REPO_ROOT,
-	type ReleaseArtifact,
-} from "./metadata.mts";
+import { artifactFileName, loadMetadata, REPO_ROOT } from "./metadata.mts";
 import { parseReleaseVersion } from "./policy.mts";
 
 type PlatformReport = {
@@ -184,20 +179,6 @@ export function currentRustTarget(): string {
 	return host;
 }
 
-function expectedSigning(
-	artifact: ReleaseArtifact,
-	macos: string,
-	windows: string,
-): boolean {
-	if (artifact.platform === "macos") {
-		return macos === "signed";
-	}
-	if (artifact.platform === "windows") {
-		return windows === "signed";
-	}
-	return false;
-}
-
 export function createManifest(input: {
 	inputDirectory: string;
 	outputDirectory: string;
@@ -205,12 +186,8 @@ export function createManifest(input: {
 	sourceSha: string;
 	runUrl: string;
 	macosSigning: string;
-	windowsSigning: string;
 }): { manifestPath: string; checksumsPath: string; artifactCount: number } {
-	if (
-		!["signed", "unsigned"].includes(input.macosSigning) ||
-		!["signed", "unsigned"].includes(input.windowsSigning)
-	) {
+	if (!["signed", "unsigned"].includes(input.macosSigning)) {
 		throw new Error("Manifest signing policies must be signed or unsigned.");
 	}
 	if (
@@ -241,11 +218,8 @@ export function createManifest(input: {
 		if (report.length !== 1) {
 			throw new Error(`Expected exactly one platform report for ${fileName}.`);
 		}
-		const expectedSigned = expectedSigning(
-			artifact,
-			input.macosSigning,
-			input.windowsSigning,
-		);
+		const expectedSigned =
+			artifact.platform === "macos" && input.macosSigning === "signed";
 		if (
 			report[0].schemaVersion !== 1 ||
 			report[0].kind !== artifact.kind ||
@@ -358,7 +332,7 @@ export function verifyArtifacts(manifestPath: string): number {
 			basename(artifact.fileName) !== artifact.fileName ||
 			artifact.notarized !==
 				(declared.platform === "macos" && artifact.signed) ||
-			(declared.platform === "linux" && artifact.signed)
+			(declared.platform !== "macos" && artifact.signed)
 		) {
 			throw new Error(
 				`Release manifest contains an invalid artifact: ${artifact.fileName}.`,

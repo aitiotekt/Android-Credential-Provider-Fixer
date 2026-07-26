@@ -1,7 +1,7 @@
 schema_version = 1
 
 [project]
-version = "0.1.0-alpha.6"
+version = "0.1.0-beta.1"
 display_name = "Android Credential Provider Fixer"
 binary_name = "acp-fixer"
 identifier = "com.aitiotekt.acp-fixer"
@@ -12,9 +12,9 @@ docs_url = "https://acp-fixer.aitiotekt.com/"
 branch = "release"
 tag_prefix = "v"
 
-[release.prerelease_signing]
-macos = "unsigned"
-windows = "unsigned"
+[release.signing]
+# Stable macOS releases always require signing. All releases use GitHub attestations.
+macos = "signed"
 
 [[release.artifact]]
 kind = "desktop"

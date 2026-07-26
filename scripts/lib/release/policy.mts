@@ -15,7 +15,6 @@ export type ReleasePlan = ParsedReleaseVersion & {
 	sourceSha: string;
 	testsRunId: string;
 	macosSigning: SigningPolicy;
-	windowsSigning: SigningPolicy;
 	requiresStableApproval: boolean;
 	mayCreateTag: boolean;
 };
@@ -75,10 +74,7 @@ export function resolveReleasePlan(
 	return {
 		...parsed,
 		...input,
-		macosSigning: stable ? "signed" : metadata.release.prereleaseSigning.macos,
-		windowsSigning: stable
-			? "signed"
-			: metadata.release.prereleaseSigning.windows,
+		macosSigning: stable ? "signed" : metadata.release.signing.macos,
 		requiresStableApproval: stable,
 		mayCreateTag: parsed.isPrerelease && input.sourceRef === releaseBranchRef,
 	};

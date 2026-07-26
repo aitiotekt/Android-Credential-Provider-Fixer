@@ -29,6 +29,18 @@ just verify
 
 修改受管文档别名后运行 `just sync-docs`；该命令拒绝覆盖普通文件。提交变更前依次运行 `just format`、`just verify` 和 `just release-check`。
 
-`acp-fixer-metadata.toml` 是发布元数据真源。使用 `node scripts/dev-cli.mts version set VERSION` 更新受管 manifest，然后编写对应的英文与中文 CHANGELOG 章节。发布流水线必须保持无 ADB 调用，不得把签名 secret 写入源码，也不得为签名 job 增加未签名降级路径。
+`acp-fixer-metadata.toml` 是发布元数据真源。使用 `just --list` 查看维护命令；若尚未激活 mise 工具链，通过 `mise exec -- just ...` 执行。
+
+| 命令 | 用途 |
+| --- | --- |
+| `just set-version VERSION` | 同步发布元数据、根/app/docsite package、Tauri 配置、Cargo workspace 与 lockfile。接受 `X.Y.Z`、`X.Y.Z-alpha.N` 或 `X.Y.Z-beta.N`。 |
+| `just check-version` | 检查版本一致性及对应的英中文 CHANGELOG 章节。 |
+| `just set-macos-signing signed` / `just set-macos-signing unsigned` | 配置 macOS 预发布签名；macOS 稳定版始终强制签名。 |
+| `just release-check` | 本地校验发布元数据、产物定义和 workflow 策略。 |
+| `just release-notices` | 将第三方许可证声明生成到 `temp/release/`。 |
+| `just stage-cli-release` | 构建并归档当前平台 CLI，包含许可证声明。 |
+| `just build-tauri-release` | 构建当前平台 Tauri release 包，包含许可证声明。 |
+
+开发期间，将新变更记录在 `CHANGELOG.md` 和 `docs/zh/CHANGELOG.md` 的注释 `## Unreleased` 区域内。即使元数据仍指向已有版本，也不要把新工作追加到旧版本章节。准备发布时，执行 `just set-version VERSION`，将累计条目统一移入对应的新版本可见章节，并保留空的 Unreleased 注释模板，再运行 `just check-version` 与 `just release-check`。设置版本不会自动生成或搬移 changelog 内容、创建提交/tag 或发布 Release。Windows 没有签名开关：所有发布均采用 GitHub Artifact Attestation 与 SHA-256，无需 Authenticode 凭据。发布流水线必须保持无 ADB 调用，不得把签名 secret 写入源码，也不得为签名 job 增加未签名降级路径。
 
 [English](../../CONTRIBUTING.md) | [中文](CONTRIBUTING.md)
