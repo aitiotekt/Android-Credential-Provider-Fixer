@@ -5,6 +5,8 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
+- Explicitly install and verify the pinned cargo-about tool in the release environment before generating third-party notices in CI and local maintenance commands.
+
 Agents: append new changes here and mirror them in docs/zh/CHANGELOG.md.
 Do not append new work to an existing version section, even if metadata still names it.
 After running just set-version VERSION, move the accumulated entries into a new

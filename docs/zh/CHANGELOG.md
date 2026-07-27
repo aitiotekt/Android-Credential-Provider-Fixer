@@ -5,6 +5,8 @@
 <!--
 ## Unreleased
 
+- 在 CI 与本地许可证生成命令中显式启用 release 环境，安装并检查固定版本的 cargo-about，避免生成声明时找不到工具。
+
 Agent：新增变更统一记录在这里，并同步英文根 CHANGELOG.md。
 即使元数据仍指向已有版本，也不得把新工作追加到已有版本章节。
 执行 just set-version VERSION 后，将累计条目移入本注释下方新的可见版本章节

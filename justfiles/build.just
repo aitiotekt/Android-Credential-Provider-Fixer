@@ -9,7 +9,9 @@ build-cli:
     cargo build -p acp-fixer-cli
 
 release-notices:
-    env MISE_ENV=release mise exec -- node scripts/dev-cli.mts release notices --output-directory=temp/release/notices
+    mise --env release install cargo:cargo-about
+    mise --env release exec -- cargo-about --version
+    mise --env release exec -- node scripts/dev-cli.mts release notices --output-directory=temp/release/notices
 
 stage-cli-release: release-notices
     cargo build --release -p acp-fixer-cli

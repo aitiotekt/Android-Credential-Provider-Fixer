@@ -79,9 +79,8 @@ function frontendNotices(): string {
 
 function rustNotices(manifest: string, output: string): void {
 	execFileSync(
-		"cargo",
+		"cargo-about",
 		[
-			"about",
 			"generate",
 			"--manifest-path",
 			manifest,
