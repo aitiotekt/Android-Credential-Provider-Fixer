@@ -94,12 +94,9 @@ jobs:
       - name: Setup release tools
         uses: ./.github/actions/setup-workspace
         with:
+          release-tools: "true"
           cache-mode: read-only
           cache-key-suffix: release
-      - name: Ensure release license tool is available
-        run: |
-          mise --env ci,release install cargo:cargo-about
-          mise --env ci,release exec -- cargo-about --version
       - name: Generate third-party notices
         run: >-
           mise --env ci,release exec -- node scripts/dev-cli.mts release notices

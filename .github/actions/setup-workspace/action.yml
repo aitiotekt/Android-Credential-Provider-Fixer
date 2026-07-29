@@ -2,6 +2,10 @@ name: Setup workspace
 description: Install the pinned mise toolchain and workspace dependencies.
 
 inputs:
+  release-tools:
+    description: Verify release-only tools in addition to the base toolchain; requires the release mise environment.
+    required: false
+    default: "false"
   include-docs:
     description: Install the independent VitePress workspace.
     required: false
@@ -23,6 +27,34 @@ runs:
       with:
         install: true
         cache: true
+        cache_key_prefix: mise-verified-v1
+
+    - name: Verify mise tool executables
+      shell: bash
+      env:
+        VERIFY_RELEASE_TOOLS: ${{ inputs.release-tools }}
+      run: |
+        verify_tool() {
+          local tool="$1"
+          shift
+          if ! mise exec -- "$@"; then
+            echo "::warning::Executable check failed for $tool; reinstalling the configured version once."
+            mise install --force "$tool"
+            mise exec -- "$@"
+          fi
+        }
+
+        verify_tool node node --version
+        verify_tool pnpm pnpm --version
+        verify_tool just just --version
+        verify_tool prek prek --version
+        verify_tool rust rustc --version
+        verify_tool rust cargo --version
+        verify_tool rust cargo fmt --version
+        verify_tool rust cargo clippy --version
+        if [ "$VERIFY_RELEASE_TOOLS" = "true" ]; then
+          verify_tool cargo:cargo-about cargo-about --version
+        fi
 
     - name: Resolve pnpm store
       id: pnpm-store

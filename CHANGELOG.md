@@ -5,7 +5,7 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
-- Explicitly install and verify the pinned cargo-about tool in the release environment before generating third-party notices in CI and local maintenance commands.
+- Verify base and opted-in release tool executables during workspace setup after mise cache restoration and installation; reinstall a failed tool's configured version and require a successful recheck before installing dependencies. Rotate the mise cache namespace while retaining caching.
 
 Agents: append new changes here and mirror them in docs/zh/CHANGELOG.md.
 Do not append new work to an existing version section, even if metadata still names it.
