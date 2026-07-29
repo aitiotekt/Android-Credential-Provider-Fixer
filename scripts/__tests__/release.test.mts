@@ -172,12 +172,6 @@ test("manifest creation requires and verifies the complete artifact set", () => 
 				},
 			);
 		}
-		for (const notice of [
-			"THIRD_PARTY_NOTICES-CLI.html",
-			"THIRD_PARTY_NOTICES-GUI.html",
-		]) {
-			writeFileSync(join(input, notice), notice);
-		}
 		assert.throws(
 			() =>
 				createManifest({
@@ -223,7 +217,7 @@ test("manifest creation requires and verifies the complete artifact set", () => 
 				`${relativeRoot}/output`,
 				`${relativeRoot}/published`,
 			),
-			12,
+			10,
 		);
 		writeFileSync(join(published, "unexpected.txt"), "unexpected");
 		assert.throws(

@@ -6,7 +6,7 @@
 
 应用不捆绑 ADB、驱动或 updater。商店描述必须在开头披露外部 Android SDK Platform-Tools 依赖。引导式 Demo 允许审核人员在没有设备时查看诊断、计划、模拟 Pin、快照和模拟 Restore；它持续标记为模拟状态，使用内置 fixture，不能执行真实 ADB 操作。
 
-`0.1.0-alpha.6` 增加发布与文档流水线。每个 Release 包含 `SHA256SUMS`、schema v1 构建 manifest、GUI/CLI 第三方许可证声明和 GitHub artifact attestations。发布候选必须绑定精确的成功 Tests run 与源码 SHA；release 分支只能发布 alpha/beta，稳定版要求精确版本 tag、受保护审批和强制 macOS 签名/notarization；Windows 稳定版同样必须生成来源证明和校验文件；manifest 的 `signed` 保持 false，因为它表示平台代码签名，不代表来源证明。具备流水线不代表某个产物已经发布，实际可用性及签名/notarization 状态应以对应 GitHub Release 为准。
+`0.1.0-alpha.6` 增加发布与文档流水线。每个 Release 包含 `SHA256SUMS`、schema v1 构建 manifest和 GitHub artifact attestations。发布候选必须绑定精确的成功 Tests run 与源码 SHA；release 分支只能发布 alpha/beta，稳定版要求精确版本 tag、受保护审批和强制 macOS 签名/notarization；Windows 稳定版同样必须生成来源证明和校验文件；manifest 的 `signed` 保持 false，因为它表示平台代码签名，不代表来源证明。具备流水线不代表某个产物已经发布，实际可用性及签名/notarization 状态应以对应 GitHub Release 为准。
 
 文档站从 `main` 部署到 [acp-fixer.aitiotekt.com](https://acp-fixer.aitiotekt.com/)。应用商店、MSI/MSIX、macOS universal binary、Linux GUI 包、自动更新和 package registry 仍不在当前范围内。
 

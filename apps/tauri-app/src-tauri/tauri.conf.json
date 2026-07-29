@@ -27,6 +27,7 @@
 	},
 	"bundle": {
 		"active": true,
+		"licenseFile": "../../../LICENSE",
 		"targets": "all",
 		"icon": [
 			"icons/Assets.car",

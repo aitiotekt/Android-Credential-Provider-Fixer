@@ -104,7 +104,6 @@ export function stageDesktop(input: {
 export function stageCli(input: {
 	target: string;
 	binary: string;
-	notices: string;
 	outputDirectory: string;
 }): string {
 	const metadata = loadMetadata();
@@ -116,8 +115,7 @@ export function stageCli(input: {
 		throw new Error(`Unknown CLI target ${input.target}.`);
 	}
 	const binary = resolve(REPO_ROOT, input.binary);
-	const notices = resolve(REPO_ROOT, input.notices);
-	for (const path of [binary, notices]) {
+	for (const path of [binary]) {
 		if (!statSync(path).isFile()) {
 			throw new Error(`CLI package input is not a file: ${path}.`);
 		}
@@ -133,7 +131,6 @@ export function stageCli(input: {
 	copyFileSync(binary, resolve(work, executableName));
 	copyFileSync(resolve(REPO_ROOT, "README.md"), resolve(work, "README.md"));
 	copyFileSync(resolve(REPO_ROOT, "LICENSE"), resolve(work, "LICENSE"));
-	copyFileSync(notices, resolve(work, "THIRD_PARTY_NOTICES.html"));
 	const destination = resolve(
 		outputDirectory,
 		artifactFileName(metadata, artifact),
@@ -147,11 +144,10 @@ export function stageCli(input: {
 			"-NoLogo",
 			"-NoProfile",
 			"-Command",
-			"Compress-Archive -LiteralPath @($args[0],$args[1],$args[2],$args[3]) -DestinationPath $args[4] -Force",
+			"Compress-Archive -LiteralPath @($args[0],$args[1],$args[2]) -DestinationPath $args[3] -Force",
 			resolve(work, executableName),
 			resolve(work, "README.md"),
 			resolve(work, "LICENSE"),
-			resolve(work, "THIRD_PARTY_NOTICES.html"),
 			destination,
 		]);
 	} else {
@@ -163,7 +159,6 @@ export function stageCli(input: {
 			executableName,
 			"README.md",
 			"LICENSE",
-			"THIRD_PARTY_NOTICES.html",
 		]);
 	}
 	rmSync(work, { recursive: true, force: true });
@@ -246,12 +241,6 @@ export function createManifest(input: {
 			sha256: sha256(destination),
 		});
 	}
-	for (const notice of [
-		"THIRD_PARTY_NOTICES-CLI.html",
-		"THIRD_PARTY_NOTICES-GUI.html",
-	]) {
-		copyFileSync(findExactly(files, notice), resolve(output, notice));
-	}
 	const manifest = {
 		schemaVersion: 1,
 		version: metadata.project.version,
@@ -268,9 +257,6 @@ export function createManifest(input: {
 	const checksumEntries = [
 		...manifestArtifacts.map(
 			(artifact) => [artifact.fileName, artifact.sha256] as const,
-		),
-		...["THIRD_PARTY_NOTICES-CLI.html", "THIRD_PARTY_NOTICES-GUI.html"].map(
-			(name) => [name, sha256(resolve(output, name))] as const,
 		),
 		["release-manifest.json", sha256(manifestPath)] as const,
 	].sort(([left], [right]) => left.localeCompare(right));
@@ -353,8 +339,6 @@ export function verifyArtifacts(manifestPath: string): number {
 	const checksums = readChecksums(resolve(directory, "SHA256SUMS"));
 	const checksumFiles = [
 		...manifest.artifacts.map((artifact) => artifact.fileName),
-		"THIRD_PARTY_NOTICES-CLI.html",
-		"THIRD_PARTY_NOTICES-GUI.html",
 		"release-manifest.json",
 	];
 	if (

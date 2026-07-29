@@ -56,7 +56,7 @@ just dev-cli demo --json
 
 GitHub Releases 提供 macOS Apple Silicon/Intel DMG、Windows x64 NSIS 安装包，以及面向 macOS、Windows 和 Linux GNU x64/ARM64 的原生 CLI 归档。所有发布（包括 alpha/beta）均提供 GitHub Artifact Attestation 和 SHA-256 校验。Windows 产物没有 Authenticode 签名，可能出现 Unknown Publisher 或 SmartScreen 警告；来源证明不能提供 Windows 发布者身份。稳定版 macOS 必须签名与 notarization，macOS 预发布遵循元数据中的显式策略。
 
-每个 Release 都包含 `SHA256SUMS`、`release-manifest.json`、第三方许可证声明和 GitHub artifact attestations。可使用以下命令验证：
+每个 Release 都包含 `SHA256SUMS`、`release-manifest.json`和 GitHub artifact attestations。可使用以下命令验证：
 
 ```sh
 gh attestation verify PATH_TO_DOWNLOAD --repo aitiotekt/Android-Credential-Provider-Fixer

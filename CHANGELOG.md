@@ -5,7 +5,8 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
-- Verify base and opted-in release tool executables during workspace setup after mise cache restoration and installation; reinstall a failed tool's configured version and require a successful recheck before installing dependencies. Rotate the mise cache namespace while retaining caching.
+- Verify base tool executables during workspace setup after mise cache restoration and installation; reinstall a failed tool's configured version and require a successful recheck before installing dependencies. Rotate the mise cache namespace while retaining caching.
+- Temporarily remove third-party notice generation, packaging, release assets, and associated tooling. Keep the project LICENSE, checksums, manifest, and provenance attestations.
 
 Agents: append new changes here and mirror them in docs/zh/CHANGELOG.md.
 Do not append new work to an existing version section, even if metadata still names it.

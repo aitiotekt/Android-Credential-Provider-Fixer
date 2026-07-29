@@ -37,9 +37,8 @@ Run `just sync-docs` after changing managed documentation aliases. The command r
 | `just check-version` | Check version consistency and matching English/Chinese CHANGELOG sections. |
 | `just set-macos-signing signed` / `just set-macos-signing unsigned` | Configure macOS prerelease signing; stable macOS releases always require signing. |
 | `just release-check` | Validate release metadata, artifact definitions, and workflow policy locally. |
-| `just release-notices` | Generate third-party notices under `temp/release/`. |
-| `just stage-cli-release` | Build and archive the current platform's CLI with notices. |
-| `just build-tauri-release` | Build the current platform's Tauri release bundle with notices. |
+| `just stage-cli-release` | Build and archive the current platform's CLI. |
+| `just build-tauri-release` | Build the current platform's Tauri release bundle. |
 
 During development, record new entries inside the commented `## Unreleased` blocks in `CHANGELOG.md` and `docs/zh/CHANGELOG.md`. Do not append new work to an existing version section, even when metadata still names that version. When preparing a release, run `just set-version VERSION`, move the accumulated entries into matching new visible version sections, and retain the empty commented Unreleased templates. Then run `just check-version` and `just release-check`. Version setting does not generate or move changelog content, create a commit/tag, or publish a release. Windows has no signing toggle: every release uses GitHub Artifact Attestations and SHA-256 without Authenticode credentials. Release workflows must remain free of ADB calls. Do not add signing secrets to source files or unsigned fallback behavior to signed jobs.
 
