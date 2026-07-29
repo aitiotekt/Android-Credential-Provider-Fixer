@@ -2,6 +2,26 @@
 
 项目的重要变化记录在这里。当前仍是预发布软件，不承诺 alpha 版本之间的诊断 JSON schema 保持稳定。
 
+<!--
+## Unreleased
+
+- 在工作区初始化中于 mise 缓存恢复及安装后检查基础工具；仅重装检查失败工具的配置版本，复检成功后才安装依赖。更新 mise 缓存命名空间并保留缓存。
+- 暂时移除第三方许可证声明生成、打包、发布资产及配套工具；保留项目 LICENSE、校验和、manifest 和来源证明。
+
+Agent：新增变更统一记录在这里，并同步英文根 CHANGELOG.md。
+即使元数据仍指向已有版本，也不得把新工作追加到已有版本章节。
+执行 just set-version VERSION 后，将累计条目移入本注释下方新的可见版本章节
+（标题为 ## VERSION）；保留这个空模板供后续使用，再运行 just check-version
+和 just release-check。set-version 不会自动搬移 changelog 条目。
+-->
+
+## 0.1.0-beta.1
+
+- 新增可通过 Just 列表发现的 `just set-version VERSION`、`just set-macos-signing POLICY` 维护命令，并补齐双语发布维护说明。
+- Windows 所有渠道（包括 alpha/beta）统一采用 GitHub Artifact Attestation 与 SHA-256，删除 PFX 凭据和 Authenticode 分支/配置。macOS 保留可配置预发布签名，稳定版仍强制签名/notarization 与受保护审批。未引入 updater 或 minisign 密钥。
+- Release notes 分别呈现来源证明与平台签名，Windows manifest 保持 `signed: false`。新增无条件生成来源证明的发布检查，汇总产物前必须通过各平台构建。
+- 新增注释形式的 Unreleased 区域及贡献者/Agent 规则，先累计新变更，再统一归入新版本，保留历史版本记录。
+
 ## 0.1.0-alpha.6
 
 - 新增职责独立、最小权限且固定 Action revision 的 Tests、Release 与 Docs workflow。

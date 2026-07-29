@@ -54,9 +54,9 @@ The desktop interface uses Tailwind CSS 4 with local Solid component primitives 
 
 ## Downloads and release verification
 
-GitHub Releases provide macOS Apple Silicon and Intel DMGs, a Windows x64 NSIS installer, and native CLI archives for macOS, Windows, and Linux GNU x64/ARM64. Alpha and beta platform packages may be unsigned; each release identifies that state explicitly. Stable macOS and Windows artifacts must pass platform signing, and macOS artifacts must also pass notarization.
+GitHub Releases provide macOS Apple Silicon and Intel DMGs, a Windows x64 NSIS installer, and native CLI archives for macOS, Windows, and Linux GNU x64/ARM64. All releases, including alpha and beta, include GitHub Artifact Attestations and SHA-256 checksums. Windows artifacts have no Authenticode signature and may display Unknown Publisher or SmartScreen warnings; provenance does not provide Windows publisher identity. Stable macOS artifacts require signing and notarization; macOS prereleases follow the explicit metadata policy.
 
-Every release includes `SHA256SUMS`, `release-manifest.json`, third-party notices, and GitHub artifact attestations. Verify an attestation with:
+Every release includes `SHA256SUMS`, `release-manifest.json`, and GitHub artifact attestations. Verify an attestation with:
 
 ```sh
 gh attestation verify PATH_TO_DOWNLOAD --repo aitiotekt/Android-Credential-Provider-Fixer

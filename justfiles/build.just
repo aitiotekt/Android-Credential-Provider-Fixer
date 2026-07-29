@@ -8,16 +8,12 @@ build-tauri:
 build-cli:
     cargo build -p acp-fixer-cli
 
-release-notices:
-    env MISE_ENV=release mise exec -- node scripts/dev-cli.mts release notices --output-directory=temp/release/notices
-
-stage-cli-release: release-notices
+stage-cli-release:
     cargo build --release -p acp-fixer-cli
-    node scripts/dev-cli.mts release stage-current-cli --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/local
+    node scripts/dev-cli.mts release stage-current-cli --output-directory=temp/release/local
 
-build-tauri-release: release-notices
-    node scripts/dev-cli.mts release tauri-config --notices=temp/release/notices/THIRD_PARTY_NOTICES-GUI.html --output=apps/tauri-app/src-tauri/target/release-resources/tauri.release.json
-    pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --config src-tauri/target/release-resources/tauri.release.json
+build-tauri-release:
+    pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build
 
 build-docs:
     cd docsite && pnpm build

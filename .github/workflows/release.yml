@@ -44,7 +44,6 @@ jobs:
       expected_tag: ${{ steps.plan.outputs.expected_tag }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
       macos_signing: ${{ steps.plan.outputs.macos_signing }}
-      windows_signing: ${{ steps.plan.outputs.windows_signing }}
       requires_stable_approval: ${{ steps.plan.outputs.requires_stable_approval }}
     steps:
       - name: Checkout exact source
@@ -82,37 +81,11 @@ jobs:
     steps:
       - run: echo "Stable release approved for ${{ needs.release-plan.outputs.expected_tag }}."
 
-  notices:
-    needs: release-plan
-    runs-on: ubuntu-24.04
-    env:
-      MISE_ENV: ci,release
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.release-plan.outputs.source_sha }}
-      - name: Setup release tools
-        uses: ./.github/actions/setup-workspace
-        with:
-          cache-mode: read-only
-          cache-key-suffix: release
-      - name: Generate third-party notices
-        run: >-
-          mise exec -- node scripts/dev-cli.mts release notices
-          --output-directory=temp/release/notices
-      - name: Upload notices
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: release-notices
-          path: temp/release/notices/THIRD_PARTY_NOTICES-*.html
-
   macos-unsigned:
     if: >-
       always() && needs.release-plan.result == 'success' &&
-      needs.notices.result == 'success' &&
       needs.release-plan.outputs.macos_signing == 'unsigned'
-    needs: [release-plan, stable-approval, notices]
+    needs: [release-plan, stable-approval]
     strategy:
       fail-fast: false
       matrix:
@@ -142,19 +115,9 @@ jobs:
         with:
           shared-key: acp-fixer-${{ matrix.target }}-release
           cache-mode: read-write
-      - name: Download notices
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notices
-          path: temp/release/notices
-      - name: Generate release-only Tauri config
-        run: >-
-          mise exec -- node scripts/dev-cli.mts release tauri-config
-          --notices=temp/release/notices/THIRD_PARTY_NOTICES-GUI.html
-          --output=apps/tauri-app/src-tauri/target/release-resources/tauri.release.json
       - name: Build desktop and CLI
         run: |
-          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target "${{ matrix.target }}" --bundles dmg --config src-tauri/target/release-resources/tauri.release.json
+          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target "${{ matrix.target }}" --bundles dmg
           mise exec -- cargo build --release --target "${{ matrix.target }}" -p acp-fixer-cli
           "target/${{ matrix.target }}/release/acp-fixer" --version
           "target/${{ matrix.target }}/release/acp-fixer" demo --json >/dev/null
@@ -166,7 +129,7 @@ jobs:
           dmg="$(find "target/${{ matrix.target }}/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "${dmg}"
           mise exec -- node scripts/dev-cli.mts release stage-desktop --target="${{ matrix.target }}" --source="${dmg}" --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/platform
+          mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --output-directory=temp/release/platform
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/desktop-${{ matrix.target }}.report.json" --file-name="android-credential-provider-fixer-v${VERSION}-${{ matrix.target }}.dmg" --kind=desktop --target="${{ matrix.target }}" --signed=false --notarized=false
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/cli-${{ matrix.target }}.report.json" --file-name="acp-fixer-v${VERSION}-${{ matrix.target }}.tar.gz" --kind=cli --target="${{ matrix.target }}" --signed=false --notarized=false
       - name: Upload macOS artifacts
@@ -178,10 +141,9 @@ jobs:
   macos-signed:
     if: >-
       always() && needs.release-plan.result == 'success' &&
-      needs.notices.result == 'success' &&
       needs.release-plan.outputs.macos_signing == 'signed' &&
       (needs.release-plan.outputs.requires_stable_approval != 'true' || needs.stable-approval.result == 'success')
-    needs: [release-plan, stable-approval, notices]
+    needs: [release-plan, stable-approval]
     environment: release-signing
     strategy:
       fail-fast: false
@@ -226,20 +188,10 @@ jobs:
         with:
           shared-key: acp-fixer-${{ matrix.target }}-release
           cache-mode: read-write
-      - name: Download notices
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notices
-          path: temp/release/notices
-      - name: Generate release-only Tauri config
-        run: >-
-          mise exec -- node scripts/dev-cli.mts release tauri-config
-          --notices=temp/release/notices/THIRD_PARTY_NOTICES-GUI.html
-          --output=apps/tauri-app/src-tauri/target/release-resources/tauri.release.json
       - name: Build, sign, and notarize desktop and CLI
         run: |
           set -euo pipefail
-          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target "${{ matrix.target }}" --bundles dmg --config src-tauri/target/release-resources/tauri.release.json
+          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target "${{ matrix.target }}" --bundles dmg
           mise exec -- cargo build --release --target "${{ matrix.target }}" -p acp-fixer-cli
           cli="target/${{ matrix.target }}/release/acp-fixer"
           codesign --force --options runtime --timestamp --sign "${APPLE_SIGNING_IDENTITY}" "${cli}"
@@ -258,7 +210,7 @@ jobs:
           set -euo pipefail
           dmg="$(find "target/${{ matrix.target }}/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
           mise exec -- node scripts/dev-cli.mts release stage-desktop --target="${{ matrix.target }}" --source="${dmg}" --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/platform
+          mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --output-directory=temp/release/platform
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/desktop-${{ matrix.target }}.report.json" --file-name="android-credential-provider-fixer-v${VERSION}-${{ matrix.target }}.dmg" --kind=desktop --target="${{ matrix.target }}" --signed=true --notarized=true
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/cli-${{ matrix.target }}.report.json" --file-name="acp-fixer-v${VERSION}-${{ matrix.target }}.tar.gz" --kind=cli --target="${{ matrix.target }}" --signed=true --notarized=true
       - name: Upload signed macOS artifacts
@@ -267,12 +219,11 @@ jobs:
           name: release-macos-${{ matrix.target }}
           path: temp/release/platform
 
-  windows-unsigned:
+  windows:
     if: >-
       always() && needs.release-plan.result == 'success' &&
-      needs.notices.result == 'success' &&
-      needs.release-plan.outputs.windows_signing == 'unsigned'
-    needs: [release-plan, stable-approval, notices]
+      (needs.release-plan.outputs.requires_stable_approval != 'true' || needs.stable-approval.result == 'success')
+    needs: [release-plan, stable-approval]
     runs-on: windows-2025
     steps:
       - name: Checkout exact source
@@ -289,25 +240,19 @@ jobs:
         with:
           shared-key: acp-fixer-x86_64-pc-windows-msvc-release
           cache-mode: read-write
-      - name: Download notices
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notices
-          path: temp/release/notices
       - name: Build and stage unsigned Windows artifacts
         shell: pwsh
         env:
           VERSION: ${{ needs.release-plan.outputs.version }}
         run: |
-          mise exec -- node scripts/dev-cli.mts release tauri-config --notices=temp/release/notices/THIRD_PARTY_NOTICES-GUI.html --output=apps/tauri-app/src-tauri/target/release-resources/tauri.release.json
-          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/target/release-resources/tauri.release.json
+          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target x86_64-pc-windows-msvc --bundles nsis
           mise exec -- cargo build --release --target x86_64-pc-windows-msvc -p acp-fixer-cli
           & target/x86_64-pc-windows-msvc/release/acp-fixer.exe --version
           & target/x86_64-pc-windows-msvc/release/acp-fixer.exe demo --json | Out-Null
           $installer = Get-ChildItem target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe | Select-Object -First 1
           if (-not $installer) { throw "NSIS installer was not produced." }
           mise exec -- node scripts/dev-cli.mts release stage-desktop --target=x86_64-pc-windows-msvc --source="$($installer.FullName)" --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release stage-cli --target=x86_64-pc-windows-msvc --binary=target/x86_64-pc-windows-msvc/release/acp-fixer.exe --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/platform
+          mise exec -- node scripts/dev-cli.mts release stage-cli --target=x86_64-pc-windows-msvc --binary=target/x86_64-pc-windows-msvc/release/acp-fixer.exe --output-directory=temp/release/platform
           mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/desktop-x86_64-pc-windows-msvc.report.json --file-name="android-credential-provider-fixer-v${env:VERSION}-x86_64-pc-windows-msvc-setup.exe" --kind=desktop --target=x86_64-pc-windows-msvc --signed=false --notarized=false
           mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/cli-x86_64-pc-windows-msvc.report.json --file-name="acp-fixer-v${env:VERSION}-x86_64-pc-windows-msvc.zip" --kind=cli --target=x86_64-pc-windows-msvc --signed=false --notarized=false
       - name: Upload Windows artifacts
@@ -316,80 +261,8 @@ jobs:
           name: release-windows-x86_64-pc-windows-msvc
           path: temp/release/platform
 
-  windows-signed:
-    if: >-
-      always() && needs.release-plan.result == 'success' &&
-      needs.notices.result == 'success' &&
-      needs.release-plan.outputs.windows_signing == 'signed' &&
-      (needs.release-plan.outputs.requires_stable_approval != 'true' || needs.stable-approval.result == 'success')
-    needs: [release-plan, stable-approval, notices]
-    runs-on: windows-2025
-    environment: release-signing
-    env:
-      WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
-      WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
-      WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.release-plan.outputs.source_sha }}
-      - name: Setup workspace
-        uses: ./.github/actions/setup-workspace
-        with:
-          cache-mode: read-only
-          cache-key-suffix: release
-      - name: Setup Rust cache
-        uses: ./.github/actions/setup-rust-cache
-        with:
-          shared-key: acp-fixer-x86_64-pc-windows-msvc-release
-          cache-mode: read-write
-      - name: Download notices
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notices
-          path: temp/release/notices
-      - name: Import Authenticode certificate
-        id: certificate
-        shell: pwsh
-        run: |
-          if (-not $env:WINDOWS_PFX_BASE64 -or -not $env:WINDOWS_PFX_PASSWORD -or -not $env:WINDOWS_TIMESTAMP_URL) { throw "Windows signing configuration is incomplete." }
-          $path = Join-Path $env:RUNNER_TEMP signing.pfx
-          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
-          $password = ConvertTo-SecureString $env:WINDOWS_PFX_PASSWORD -AsPlainText -Force
-          $certificate = Import-PfxCertificate -FilePath $path -CertStoreLocation Cert:\CurrentUser\My -Password $password
-          if (-not $certificate.Thumbprint) { throw "No signing certificate was imported." }
-          "thumbprint=$($certificate.Thumbprint)" >> $env:GITHUB_OUTPUT
-          Remove-Item $path -Force
-      - name: Build, sign, and stage Windows artifacts
-        shell: pwsh
-        env:
-          VERSION: ${{ needs.release-plan.outputs.version }}
-          CERTIFICATE_THUMBPRINT: ${{ steps.certificate.outputs.thumbprint }}
-        run: |
-          mise exec -- node scripts/dev-cli.mts release tauri-config --notices=temp/release/notices/THIRD_PARTY_NOTICES-GUI.html --output=apps/tauri-app/src-tauri/target/release-resources/tauri.release.json --certificate-thumbprint="$env:CERTIFICATE_THUMBPRINT" --timestamp-url="$env:WINDOWS_TIMESTAMP_URL"
-          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/target/release-resources/tauri.release.json
-          mise exec -- cargo build --release --target x86_64-pc-windows-msvc -p acp-fixer-cli
-          $cli = Resolve-Path target/x86_64-pc-windows-msvc/release/acp-fixer.exe
-          signtool.exe sign /fd SHA256 /td SHA256 /tr "$env:WINDOWS_TIMESTAMP_URL" /sha1 "$env:CERTIFICATE_THUMBPRINT" "$cli"
-          signtool.exe verify /pa /all /v "$cli"
-          & $cli --version
-          & $cli demo --json | Out-Null
-          $installer = Get-ChildItem target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe | Select-Object -First 1
-          if (-not $installer) { throw "NSIS installer was not produced." }
-          signtool.exe verify /pa /all /v $installer.FullName
-          mise exec -- node scripts/dev-cli.mts release stage-desktop --target=x86_64-pc-windows-msvc --source="$($installer.FullName)" --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release stage-cli --target=x86_64-pc-windows-msvc --binary="$cli" --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/desktop-x86_64-pc-windows-msvc.report.json --file-name="android-credential-provider-fixer-v${env:VERSION}-x86_64-pc-windows-msvc-setup.exe" --kind=desktop --target=x86_64-pc-windows-msvc --signed=true --notarized=false
-          mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/cli-x86_64-pc-windows-msvc.report.json --file-name="acp-fixer-v${env:VERSION}-x86_64-pc-windows-msvc.zip" --kind=cli --target=x86_64-pc-windows-msvc --signed=true --notarized=false
-      - name: Upload signed Windows artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: release-windows-x86_64-pc-windows-msvc
-          path: temp/release/platform
-
   linux-cli:
-    needs: [release-plan, notices]
+    needs: [release-plan]
     strategy:
       fail-fast: false
       matrix:
@@ -414,11 +287,6 @@ jobs:
         with:
           shared-key: acp-fixer-${{ matrix.target }}-release
           cache-mode: read-write
-      - name: Download notices
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notices
-          path: temp/release/notices
       - name: Build and smoke test CLI
         run: |
           mise exec -- cargo build --release --target "${{ matrix.target }}" -p acp-fixer-cli
@@ -429,7 +297,7 @@ jobs:
         env:
           VERSION: ${{ needs.release-plan.outputs.version }}
         run: |
-          mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/platform
+          mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --output-directory=temp/release/platform
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/cli-${{ matrix.target }}.report.json" --file-name="acp-fixer-v${VERSION}-${{ matrix.target }}.tar.gz" --kind=cli --target="${{ matrix.target }}" --signed=false --notarized=false
       - name: Upload Linux CLI
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -438,14 +306,15 @@ jobs:
           path: temp/release/platform
 
   assemble:
-    if: always() && needs.release-plan.result == 'success' && needs.notices.result == 'success'
+    if: >-
+      always() && needs.release-plan.result == 'success' &&
+      needs.windows.result == 'success' && needs.linux-cli.result == 'success' &&
+      (needs.macos-signed.result == 'success' || needs.macos-unsigned.result == 'success')
     needs:
       - release-plan
-      - notices
       - macos-unsigned
       - macos-signed
-      - windows-unsigned
-      - windows-signed
+      - windows
       - linux-cli
     runs-on: ubuntu-24.04
     permissions:
@@ -476,8 +345,7 @@ jobs:
             --source-ref="${{ needs.release-plan.outputs.source_ref }}" \
             --source-sha="${{ needs.release-plan.outputs.source_sha }}" \
             --run-url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${{ needs.release-plan.outputs.tests_run_id }}" \
-            --macos-signing="${{ needs.release-plan.outputs.macos_signing }}" \
-            --windows-signing="${{ needs.release-plan.outputs.windows_signing }}"
+            --macos-signing="${{ needs.release-plan.outputs.macos_signing }}"
           mise exec -- node scripts/dev-cli.mts release verify-artifacts --manifest=temp/release/final/release-manifest.json
           mise exec -- node scripts/dev-cli.mts release notes --manifest=temp/release/final/release-manifest.json --output=temp/release/final/RELEASE_NOTES.md
       - name: Attest final downloads
@@ -488,7 +356,6 @@ jobs:
             temp/release/final/*.exe
             temp/release/final/*.zip
             temp/release/final/*.tar.gz
-            temp/release/final/THIRD_PARTY_NOTICES-*.html
             temp/release/final/SHA256SUMS
             temp/release/final/release-manifest.json
       - name: Upload final release set
@@ -539,10 +406,10 @@ jobs:
               echo "Published release already matches this source and artifact set."
               exit 0
             fi
-            gh release upload "${TAG}" temp/release/final/*.dmg temp/release/final/*.exe temp/release/final/*.zip temp/release/final/*.tar.gz temp/release/final/THIRD_PARTY_NOTICES-*.html temp/release/final/SHA256SUMS temp/release/final/release-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
+            gh release upload "${TAG}" temp/release/final/*.dmg temp/release/final/*.exe temp/release/final/*.zip temp/release/final/*.tar.gz temp/release/final/SHA256SUMS temp/release/final/release-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
           else
             gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag --draft --title "Android Credential Provider Fixer ${VERSION}" --notes-file temp/release/final/RELEASE_NOTES.md
-            gh release upload "${TAG}" temp/release/final/*.dmg temp/release/final/*.exe temp/release/final/*.zip temp/release/final/*.tar.gz temp/release/final/THIRD_PARTY_NOTICES-*.html temp/release/final/SHA256SUMS temp/release/final/release-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
+            gh release upload "${TAG}" temp/release/final/*.dmg temp/release/final/*.exe temp/release/final/*.zip temp/release/final/*.tar.gz temp/release/final/SHA256SUMS temp/release/final/release-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
           fi
           if [[ "${PRERELEASE}" == "true" ]]; then
             gh release edit "${TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false --prerelease

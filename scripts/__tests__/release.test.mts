@@ -22,7 +22,11 @@ import {
 	loadMetadata,
 	REPO_ROOT,
 } from "../lib/release/metadata.mts";
-import { extractChangelogSection } from "../lib/release/notes.mts";
+import {
+	extractChangelogSection,
+	generateReleaseNotes,
+	releaseSigningNotice,
+} from "../lib/release/notes.mts";
 import {
 	parseReleaseVersion,
 	resolveReleasePlan,
@@ -42,12 +46,11 @@ test("release versions accept stable, alpha, and beta only", () => {
 	}
 });
 
-test("stable plans require an exact tag and signed platform artifacts", () => {
+test("stable plans require an exact tag, approval, and macOS signing without Windows signing configuration", () => {
 	const metadata = loadMetadata();
 	metadata.project.version = "1.2.3";
-	metadata.release.prereleaseSigning = {
+	metadata.release.signing = {
 		macos: "unsigned",
-		windows: "unsigned",
 	};
 	assert.throws(() =>
 		resolveReleasePlan(metadata, {
@@ -62,20 +65,37 @@ test("stable plans require an exact tag and signed platform artifacts", () => {
 		testsRunId: "42",
 	});
 	assert.equal(plan.macosSigning, "signed");
-	assert.equal(plan.windowsSigning, "signed");
+	assert.equal("windowsSigning" in plan, false);
 	assert.equal(plan.requiresStableApproval, true);
 });
 
-test("prerelease plans preserve the per-platform signing policy", () => {
+test("stable unsigned Windows downloads are disclosed without claiming prerelease status", () => {
+	const notice = releaseSigningNotice(false, [
+		{ platform: "macos", signed: true },
+		{ platform: "windows", signed: false },
+	]);
+	assert.match(notice, /stable release/);
+	assert.match(notice, /not platform code-signed/);
+	assert.doesNotMatch(notice, /prerelease/);
+	assert.doesNotMatch(
+		releaseSigningNotice(false, [
+			{ platform: "macos", signed: true },
+			{ platform: "linux", signed: false },
+		]),
+		/Artifacts without a platform signature/,
+	);
+});
+
+test("prerelease plans preserve macOS signing policy without Windows credentials", () => {
 	const metadata = loadMetadata();
-	metadata.release.prereleaseSigning = { macos: "signed", windows: "unsigned" };
+	metadata.release.signing = { macos: "signed" };
 	const plan = resolveReleasePlan(metadata, {
 		sourceRef: "refs/heads/release",
 		sourceSha: "b".repeat(40),
 		testsRunId: "7",
 	});
 	assert.equal(plan.macosSigning, "signed");
-	assert.equal(plan.windowsSigning, "unsigned");
+	assert.equal("windowsSigning" in plan, false);
 	assert.equal(plan.mayCreateTag, true);
 });
 
@@ -86,6 +106,14 @@ test("metadata enforces the complete artifact matrix and stable names", () => {
 		const path = join(directory, "metadata.toml");
 		writeFileSync(path, source);
 		const metadata = loadMetadata(path);
+		writeFileSync(
+			path,
+			source.replace(
+				"[release.signing]",
+				'[release.signing]\nwindows = "signed"',
+			),
+		);
+		assert.throws(() => loadMetadata(path), /no longer supported/);
 		assert.equal(
 			artifactFileName(metadata, metadata.release.artifacts[0]),
 			`android-credential-provider-fixer-v${metadata.project.version}-aarch64-apple-darwin.dmg`,
@@ -144,12 +172,6 @@ test("manifest creation requires and verifies the complete artifact set", () => 
 				},
 			);
 		}
-		for (const notice of [
-			"THIRD_PARTY_NOTICES-CLI.html",
-			"THIRD_PARTY_NOTICES-GUI.html",
-		]) {
-			writeFileSync(join(input, notice), notice);
-		}
 		assert.throws(
 			() =>
 				createManifest({
@@ -159,7 +181,6 @@ test("manifest creation requires and verifies the complete artifact set", () => 
 					sourceSha: "a".repeat(40),
 					runUrl: "https://example.invalid/run/1",
 					macosSigning: "signed",
-					windowsSigning: "unsigned",
 				}),
 			/platform report does not match release policy/i,
 		);
@@ -170,9 +191,18 @@ test("manifest creation requires and verifies the complete artifact set", () => 
 			sourceSha: "a".repeat(40),
 			runUrl: "https://example.invalid/run/1",
 			macosSigning: "unsigned",
-			windowsSigning: "unsigned",
 		});
 		assert.equal(result.artifactCount, 8);
+		const notesPath = generateReleaseNotes({
+			manifest: `${relativeRoot}/output/release-manifest.json`,
+			output: `${relativeRoot}/notes.md`,
+		});
+		const notes = readFileSync(notesPath, "utf8");
+		assert.match(
+			notes,
+			/No Authenticode signature \| GitHub Artifact Attestation/,
+		);
+		assert.match(notes, /Every release, including alpha and beta/);
 		assert.equal(
 			verifyArtifacts(`${relativeRoot}/output/release-manifest.json`),
 			8,
@@ -187,7 +217,7 @@ test("manifest creation requires and verifies the complete artifact set", () => 
 				`${relativeRoot}/output`,
 				`${relativeRoot}/published`,
 			),
-			12,
+			10,
 		);
 		writeFileSync(join(published, "unexpected.txt"), "unexpected");
 		assert.throws(

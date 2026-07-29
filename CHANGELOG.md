@@ -2,6 +2,27 @@
 
 All notable project changes are recorded here. The project is pre-release software and does not yet promise a stable diagnostic JSON schema across alpha versions.
 
+<!--
+## Unreleased
+
+- Verify base tool executables during workspace setup after mise cache restoration and installation; reinstall a failed tool's configured version and require a successful recheck before installing dependencies. Rotate the mise cache namespace while retaining caching.
+- Temporarily remove third-party notice generation, packaging, release assets, and associated tooling. Keep the project LICENSE, checksums, manifest, and provenance attestations.
+
+Agents: append new changes here and mirror them in docs/zh/CHANGELOG.md.
+Do not append new work to an existing version section, even if metadata still names it.
+After running just set-version VERSION, move the accumulated entries into a new
+visible ## VERSION section below this comment. Keep this empty template for future
+work, then run just check-version and just release-check. set-version does not
+move changelog entries automatically.
+-->
+
+## 0.1.0-beta.1
+
+- Added discoverable `just set-version VERSION` and `just set-macos-signing POLICY` maintenance commands, with bilingual release-maintenance instructions.
+- Simplified Windows releases to GitHub Artifact Attestations and SHA-256 for all channels, including alpha/beta, and removed PFX credentials and Authenticode branches/configuration. macOS retains configurable prerelease signing and mandatory stable signing/notarization with protected approval. No updater or minisign key was introduced.
+- Separated build provenance from platform signatures in release notes; the manifest retains `signed: false` for Windows. Added release checks for unconditional attestations and gated assembly on successful platform builds.
+- Added a commented Unreleased section and contributor/agent rules to accumulate new changes before assigning them to a new version, preserving historical release entries.
+
 ## 0.1.0-alpha.6
 
 - Added separate Tests, Release, and Docs workflows with least-privilege permissions and immutable action revisions.

@@ -4,7 +4,7 @@
 
 Version `0.1.0-alpha.6` permits only the documented reads and bounded writes to `credential_service` and `credential_service_primary`. A write requires a current diagnosis entity, a five-minute one-use plan bound to that diagnosis, an atomic schema-v2 snapshot, exact state revalidation, read-back verification, and automatic recovery. `autofill_service` remains read-only. The Demo frontend session resolves only a fixture gateway from its child Injector and cannot fall through to the live Tauri device gateway.
 
-Release workflows never invoke ADB. Stable macOS and Windows artifacts require platform signing, release jobs use environment-scoped credentials, and every downloadable artifact is covered by a checksum, manifest, and GitHub provenance attestation. Unsigned prereleases are explicitly identified and never silently substituted after signing failure.
+Release workflows never invoke ADB. Every release channel provides GitHub Artifact Attestations, a manifest, and SHA-256 checksums. Windows artifacts are not Authenticode-signed and require no CA credentials; provenance verifies build origin, not Windows publisher identity or SmartScreen reputation. Stable macOS artifacts require platform signing and notarization, with environment-scoped credentials and no unsigned fallback after signing failure. The manifest `signed` field describes platform code signing only. The application has no updater or minisign signing keys.
 
 The backend rejects stale parent IDs and late asynchronous results. It persists an `executing` snapshot before the first possible write, and every cancellation, expiry, state drift, or execution result is terminal. Legacy v1 snapshot files remain untouched and cannot be restored.
 

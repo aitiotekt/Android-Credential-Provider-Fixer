@@ -35,12 +35,8 @@ import {
 import { loadMetadata } from "./lib/release/metadata.mts";
 import { generateReleaseNotes } from "./lib/release/notes.mts";
 import {
-	generateNotices,
-	writeTauriReleaseConfig,
-} from "./lib/release/notices.mts";
-import {
 	checkVersion as checkReleaseVersion,
-	setPrereleaseSigning,
+	setReleaseSigning,
 	setVersion,
 } from "./lib/release/version.mts";
 import {
@@ -826,7 +822,7 @@ function checkArchitecture(): void {
 
 function usage(): never {
 	console.error(
-		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|ensure-tag|notices|tauri-config|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
+		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|ensure-tag|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
 	);
 	process.exit(2);
 }
@@ -845,16 +841,16 @@ async function runRelease(
 				: undefined,
 		);
 		if (
-			(platform !== "macos" && platform !== "windows") ||
+			platform !== "macos" ||
 			(policy !== "signed" && policy !== "unsigned")
 		) {
 			usage();
 		}
-		const result = setPrereleaseSigning(platform, policy);
+		const result = setReleaseSigning(platform, policy);
 		emitResult(
 			result,
 			signingFormat,
-			`Set ${platform} prerelease signing policy to ${policy}.`,
+			`Set ${platform} release signing policy to ${policy}.`,
 		);
 		return;
 	}
@@ -910,42 +906,10 @@ async function runRelease(
 		emitResult({ tag_status: status }, format, `Release tag ${status}.`);
 		return;
 	}
-	if (action === "notices") {
-		const result = generateNotices(requiredOption(options, "output-directory"));
-		emitResult(result, format, "Generated CLI and GUI third-party notices.");
-		return;
-	}
-	if (action === "tauri-config") {
-		const certificateThumbprint = options.get("certificate-thumbprint");
-		const timestampUrl = options.get("timestamp-url");
-		if (
-			(certificateThumbprint === undefined) !==
-			(timestampUrl === undefined)
-		) {
-			throw new Error(
-				"Windows certificate thumbprint and timestamp URL must be supplied together.",
-			);
-		}
-		writeTauriReleaseConfig(
-			requiredOption(options, "notices"),
-			requiredOption(options, "output"),
-			typeof certificateThumbprint === "string" &&
-				typeof timestampUrl === "string"
-				? { certificateThumbprint, timestampUrl }
-				: undefined,
-		);
-		emitResult(
-			{ config_path: requiredOption(options, "output") },
-			format,
-			"Generated release-only Tauri resource config.",
-		);
-		return;
-	}
 	if (action === "stage-cli") {
 		const path = stageCli({
 			target: requiredOption(options, "target"),
 			binary: requiredOption(options, "binary"),
-			notices: requiredOption(options, "notices"),
 			outputDirectory: requiredOption(options, "output-directory"),
 		});
 		emitResult({ artifact_path: path }, format, `Staged ${path}.`);
@@ -958,7 +922,6 @@ async function runRelease(
 		const path = stageCli({
 			target,
 			binary: `target/release/${executable}`,
-			notices: requiredOption(options, "notices"),
 			outputDirectory: requiredOption(options, "output-directory"),
 		});
 		emitResult({ artifact_path: path, target }, format, `Staged ${path}.`);
@@ -996,7 +959,6 @@ async function runRelease(
 			sourceSha: requiredOption(options, "source-sha"),
 			runUrl: requiredOption(options, "run-url"),
 			macosSigning: requiredOption(options, "macos-signing"),
-			windowsSigning: requiredOption(options, "windows-signing"),
 		});
 		emitResult(
 			result,

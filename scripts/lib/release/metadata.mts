@@ -29,9 +29,8 @@ export type AcpFixerMetadata = {
 	release: {
 		branch: string;
 		tagPrefix: string;
-		prereleaseSigning: {
+		signing: {
 			macos: SigningPolicy;
-			windows: SigningPolicy;
 		};
 		artifacts: ReleaseArtifact[];
 	};
@@ -41,7 +40,7 @@ type RawMetadata = {
 	schema_version?: unknown;
 	project?: Record<string, unknown>;
 	release?: Record<string, unknown> & {
-		prerelease_signing?: Record<string, unknown>;
+		signing?: Record<string, unknown>;
 		artifact?: unknown;
 	};
 };
@@ -118,7 +117,12 @@ export function loadMetadata(path = METADATA_PATH): AcpFixerMetadata {
 	}
 	const project = raw.project;
 	const release = raw.release;
-	const signing = release?.prerelease_signing;
+	const signing = release?.signing;
+	if (signing && "windows" in signing) {
+		throw new Error(
+			"release.signing.windows is no longer supported; Windows releases use GitHub attestations without Authenticode.",
+		);
+	}
 	const artifacts = release?.artifact;
 	if (!Array.isArray(artifacts) || artifacts.length === 0) {
 		throw new Error("acp-fixer-metadata.toml must define release artifacts.");
@@ -156,15 +160,8 @@ export function loadMetadata(path = METADATA_PATH): AcpFixerMetadata {
 		release: {
 			branch: requiredString(release, "branch", "release"),
 			tagPrefix: requiredString(release, "tag_prefix", "release"),
-			prereleaseSigning: {
-				macos: signingPolicy(
-					signing?.macos,
-					"release.prerelease_signing.macos",
-				),
-				windows: signingPolicy(
-					signing?.windows,
-					"release.prerelease_signing.windows",
-				),
+			signing: {
+				macos: signingPolicy(signing?.macos, "release.signing.macos"),
 			},
 			artifacts: parsedArtifacts,
 		},

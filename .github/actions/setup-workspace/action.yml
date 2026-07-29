@@ -23,6 +23,29 @@ runs:
       with:
         install: true
         cache: true
+        cache_key_prefix: mise-verified-v1
+
+    - name: Verify mise tool executables
+      shell: bash
+      run: |
+        verify_tool() {
+          local tool="$1"
+          shift
+          if ! mise exec -- "$@"; then
+            echo "::warning::Executable check failed for $tool; reinstalling the configured version once."
+            mise install --force "$tool"
+            mise exec -- "$@"
+          fi
+        }
+
+        verify_tool node node --version
+        verify_tool pnpm pnpm --version
+        verify_tool just just --version
+        verify_tool prek prek --version
+        verify_tool rust rustc --version
+        verify_tool rust cargo --version
+        verify_tool rust cargo fmt --version
+        verify_tool rust cargo clippy --version
 
     - name: Resolve pnpm store
       id: pnpm-store

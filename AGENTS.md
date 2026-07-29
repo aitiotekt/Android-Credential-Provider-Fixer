@@ -70,8 +70,8 @@ _Single source of truth for agent behavior and project engineering rules._
 - After changing either icon master, run `just sync-icons`; `app-icon-macos-legacy.png` intentionally uses a transparent safe zone for the ICNS used by `tauri dev` and older macOS versions.
 - Before completing an iteration, run formatting, linting, type checking, relevant tests, and builds.
 - CI and normal tests must never discover or invoke a host `adb` binary.
-- `acp-fixer-metadata.toml` is the release metadata and version source of truth. Release policy, artifact names, manifests, notices, and ref validation belong in typed modules under `scripts/lib/release`; workflow YAML coordinates them and must not duplicate their policy.
-- Release branch automation may publish only alpha/beta versions. Stable releases require an exact version tag, protected approval, mandatory macOS/Windows platform signing, and no unsigned fallback. Signing credentials stay in GitHub Environments and never enter source, reports, caches, or artifacts.
+- `acp-fixer-metadata.toml` is the release metadata and version source of truth. Release policy, artifact names, manifests, and ref validation belong in typed modules under `scripts/lib/release`; workflow YAML coordinates them and must not duplicate their policy.
+- Release branch automation may publish only alpha/beta versions. Stable releases require an exact version tag, protected approval, and mandatory macOS signing/notarization. Windows releases use GitHub Artifact Attestations and SHA-256 in every channel, without Authenticode, CA credentials, updater, or minisign keys. The manifest `signed` field means platform code signing only; provenance must not be presented as Windows Verified Publisher trust. macOS signing credentials stay in GitHub Environments and never enter source, reports, caches, or artifacts.
 - Every downloadable artifact must be represented in the release manifest, SHA-256 checksums, and GitHub provenance attestations. Release workflows must remain idempotent and must never overwrite mismatched assets in a published release.
 
 ## Documentation
@@ -82,4 +82,5 @@ _Single source of truth for agent behavior and project engineering rules._
 - Documentation filenames and long-form docs are symmetric across language directories, with language links between counterparts.
 - `docsite` consumes repository docs through managed relative symlinks. Use `just sync-docs` and `just check-docs`.
 - Describe current behavior as current behavior and future work as roadmap. Historical changes belong in `CHANGELOG.md` when one exists.
+- Record new changes in the commented `## Unreleased` block in both English and Chinese changelogs, never by appending to an existing version section just because metadata still names that version. When preparing a release, run `just set-version VERSION`, move the accumulated entries into a new visible `## VERSION` section, and retain the empty commented Unreleased template. The command updates manifests only; moving entries is a separate editorial step. Preserve historical version sections unless explicitly correcting their history, then run `just check-version` and `just release-check`.
 - Temporary agent files belong under `temp/` and are not committed.
