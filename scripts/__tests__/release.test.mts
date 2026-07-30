@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	copyFileSync,
 	mkdirSync,
@@ -11,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { parse } from "yaml";
 import {
 	createManifest,
 	verifyArtifacts,
@@ -31,6 +33,86 @@ import {
 	parseReleaseVersion,
 	resolveReleasePlan,
 } from "../lib/release/policy.mts";
+
+test("signed DMG is accepted and stapled before validation, with failures stopping publication", () => {
+	const workflow = parse(
+		readFileSync(join(REPO_ROOT, ".github/workflows/release.yml"), "utf8"),
+	);
+	const build = workflow.jobs["macos-signed"].steps.find(
+		(step: { name: string }) =>
+			step.name === "Build, sign, and notarize desktop and CLI",
+	).run as string;
+	const script = build.slice(
+		build.indexOf(`codesign --verify --strict --verbose=2 "\${dmg}"`),
+	);
+	assert.ok(script.startsWith("codesign --verify"));
+	assert.ok(
+		build.includes(
+			'status !== "Accepted") throw new Error("CLI notarization was not accepted")',
+		),
+	);
+	for (const scenario of [
+		"accepted",
+		"rejected",
+		"submit-failed",
+		"staple-failed",
+		"validate-failed",
+	]) {
+		const directory = mkdtempSync(join(tmpdir(), "acp-notarization-"));
+		try {
+			const result = spawnSync(
+				"bash",
+				[
+					"-e",
+					"-u",
+					"-o",
+					"pipefail",
+					"-c",
+					`
+codesign() { return 0; }
+mise() { shift; shift; command "$@"; }
+xcrun() {
+  echo "$1 $2" >&2
+  case "$1 $2" in
+    "notarytool submit")
+      if [ "$SCENARIO" = submit-failed ]; then return 1; fi
+      if [ "$SCENARIO" = rejected ]; then echo '{"status":"Invalid"}'; else echo '{"status":"Accepted"}'; fi ;;
+    "stapler staple") [ "$SCENARIO" != staple-failed ] ;;
+    "stapler validate") [ "$SCENARIO" != validate-failed ] ;;
+  esac
+}
+${script}
+echo staged
+`,
+				],
+				{
+					encoding: "utf8",
+					env: {
+						...process.env,
+						SCENARIO: scenario,
+						RUNNER_TEMP: directory,
+						dmg: "test image.dmg",
+						APPLE_ID: "test",
+						APPLE_TEAM_ID: "test",
+						APPLE_PASSWORD: "test",
+					},
+				},
+			);
+			assert.equal(result.status === 0, scenario === "accepted", result.stderr);
+			assert.equal(result.stdout.includes("staged"), scenario === "accepted");
+			assert.equal(
+				result.stderr.includes("stapler staple"),
+				!["rejected", "submit-failed"].includes(scenario),
+			);
+			assert.equal(
+				result.stderr.includes("stapler validate"),
+				["accepted", "validate-failed"].includes(scenario),
+			);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}
+});
 
 test("release versions accept stable, alpha, and beta only", () => {
 	assert.equal(parseReleaseVersion("1.2.3").channel, "stable");

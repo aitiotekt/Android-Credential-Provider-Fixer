@@ -197,11 +197,17 @@ jobs:
           codesign --force --options runtime --timestamp --sign "${APPLE_SIGNING_IDENTITY}" "${cli}"
           codesign --verify --strict --verbose=2 "${cli}"
           ditto -c -k --keepParent "${cli}" "${RUNNER_TEMP}/acp-fixer-notarization.zip"
-          xcrun notarytool submit "${RUNNER_TEMP}/acp-fixer-notarization.zip" --apple-id "${APPLE_ID}" --team-id "${APPLE_TEAM_ID}" --password "${APPLE_PASSWORD}" --wait
+          xcrun notarytool submit "${RUNNER_TEMP}/acp-fixer-notarization.zip" --apple-id "${APPLE_ID}" --team-id "${APPLE_TEAM_ID}" --password "${APPLE_PASSWORD}" --wait --output-format json > "${RUNNER_TEMP}/cli-notarization.json"
+          mise exec -- node -e 'const fs = require("node:fs"); if (JSON.parse(fs.readFileSync(process.argv[1], "utf8")).status !== "Accepted") throw new Error("CLI notarization was not accepted");' "${RUNNER_TEMP}/cli-notarization.json"
           "${cli}" --version
           "${cli}" demo --json >/dev/null
           dmg="$(find "target/${{ matrix.target }}/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "${dmg}"
+          codesign --verify --strict --verbose=2 "${dmg}"
+          # The app's stapled ticket does not staple the enclosing disk image.
+          xcrun notarytool submit "${dmg}" --apple-id "${APPLE_ID}" --team-id "${APPLE_TEAM_ID}" --password "${APPLE_PASSWORD}" --wait --output-format json > "${RUNNER_TEMP}/dmg-notarization.json"
+          mise exec -- node -e 'const fs = require("node:fs"); if (JSON.parse(fs.readFileSync(process.argv[1], "utf8")).status !== "Accepted") throw new Error("DMG notarization was not accepted");' "${RUNNER_TEMP}/dmg-notarization.json"
+          xcrun stapler staple "${dmg}"
           xcrun stapler validate "${dmg}"
       - name: Stage release artifacts
         env:
