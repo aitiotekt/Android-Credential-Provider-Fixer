@@ -6,21 +6,27 @@ import {
 	resolveReleasePlan,
 } from "./policy.mts";
 
-function git(arguments_: string[]): string {
+function git(arguments_: string[], repositoryPath = REPO_ROOT): string {
 	return execFileSync("git", arguments_, {
-		cwd: REPO_ROOT,
+		cwd: repositoryPath,
 		encoding: "utf8",
 	}).trim();
 }
 
-function remoteTagTarget(tag: string): string | undefined {
-	const output = git([
-		"ls-remote",
-		"--tags",
-		"origin",
-		`refs/tags/${tag}`,
-		`refs/tags/${tag}^{}`,
-	]);
+function remoteTagTarget(
+	tag: string,
+	repositoryPath = REPO_ROOT,
+): string | undefined {
+	const output = git(
+		[
+			"ls-remote",
+			"--tags",
+			"origin",
+			`refs/tags/${tag}`,
+			`refs/tags/${tag}^{}`,
+		],
+		repositoryPath,
+	);
 	if (!output) {
 		return undefined;
 	}
@@ -164,29 +170,39 @@ export async function validateReleaseRef(input: {
 export function ensureReleaseTag(
 	sourceSha: string,
 	push: boolean,
+	repositoryPath = REPO_ROOT,
 ): "created" | "existing" {
 	const metadata = loadMetadata();
 	const parsed = parseReleaseVersion(
 		metadata.project.version,
 		metadata.release.tagPrefix,
 	);
-	const target = remoteTagTarget(parsed.tag);
+	if (
+		!/^[0-9a-f]{40}$/i.test(sourceSha) ||
+		git(["rev-parse", "HEAD"], repositoryPath) !== sourceSha
+	) {
+		throw new Error("Release tag source must match the checked-out commit.");
+	}
+	const target = remoteTagTarget(parsed.tag, repositoryPath);
 	if (target && target !== sourceSha) {
 		throw new Error(`Tag ${parsed.tag} points to ${target}, not ${sourceSha}.`);
 	}
 	if (target) {
 		return "existing";
 	}
-	git([
-		"tag",
-		"--annotate",
-		parsed.tag,
-		sourceSha,
-		"--message",
-		`${metadata.project.displayName} ${parsed.version}`,
-	]);
+	git(
+		[
+			"tag",
+			"--annotate",
+			parsed.tag,
+			sourceSha,
+			"--message",
+			`${metadata.project.displayName} ${parsed.version}`,
+		],
+		repositoryPath,
+	);
 	if (push) {
-		git(["push", "origin", `refs/tags/${parsed.tag}`]);
+		git(["push", "origin", `refs/tags/${parsed.tag}`], repositoryPath);
 	}
 	return "created";
 }

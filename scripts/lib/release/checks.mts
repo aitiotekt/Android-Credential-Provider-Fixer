@@ -3,6 +3,66 @@ import { resolve } from "node:path";
 import { parse } from "yaml";
 import { REPO_ROOT } from "./metadata.mts";
 
+type ReleaseJob = {
+	if?: string;
+	needs?: string[];
+	steps?: Array<{
+		name?: string;
+		run?: string;
+		env?: Record<string, string>;
+		with?: Record<string, unknown>;
+	}>;
+};
+
+export function checkPublicationWorkflow(source: string): void {
+	const { jobs } = parse(source) as { jobs: Record<string, ReleaseJob> };
+	const condition = jobs.publish?.if?.replace(/\s+/g, " ").trim();
+	if (
+		condition !==
+		"!cancelled() && needs.release-plan.result == 'success' && needs.assemble.result == 'success'"
+	) {
+		throw new Error(
+			"Publication must explicitly require successful dependencies without inheriting skipped ancestors.",
+		);
+	}
+	const steps = jobs.publish.steps ?? [];
+	const tag = steps.find(
+		(step) => step.name === "Create or verify release tag",
+	);
+	if (!tag?.env?.GIT_COMMITTER_NAME || !tag.env.GIT_COMMITTER_EMAIL) {
+		throw new Error(
+			"Annotated release tags require an explicit committer identity.",
+		);
+	}
+	const download = jobs.assemble?.steps?.find(
+		(step) => step.name === "Download release inputs",
+	);
+	if (download?.with?.pattern !== "release-@(macos-*|windows-*|linux-*)") {
+		throw new Error(
+			"Assembly must exclude previously assembled final artifacts.",
+		);
+	}
+	if (
+		jobs["release-report"]?.if !== "always()" ||
+		!jobs["release-report"].needs?.includes("publish")
+	) {
+		throw new Error(
+			"Release completion must be checked even when publication is skipped.",
+		);
+	}
+	const publish =
+		steps.find((step) => step.name === "Publish idempotent GitHub Release")
+			?.run ?? "";
+	const verification = publish.indexOf(
+		"--published-directory=temp/release/uploaded",
+	);
+	if (verification < 0 || verification > publish.indexOf("--draft=false")) {
+		throw new Error(
+			"Uploaded draft assets must be verified before publication.",
+		);
+	}
+}
+
 const WORKFLOWS = [
 	".github/workflows/tests.yml",
 	".github/workflows/release.yml",
@@ -41,6 +101,7 @@ export function checkReleaseAutomation(): number {
 	}
 	const release =
 		sources.find(([path]) => path.endsWith("release.yml"))?.[1] ?? "";
+	checkPublicationWorkflow(release);
 	for (const required of [
 		"workflow_dispatch:",
 		"environment: stable-release",
