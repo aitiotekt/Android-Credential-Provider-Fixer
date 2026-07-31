@@ -143,11 +143,12 @@ export function stageCli(input: {
 		execFileSync("powershell.exe", [
 			"-NoLogo",
 			"-NoProfile",
-			"-Command",
-			"Compress-Archive -LiteralPath @($args[0],$args[1],$args[2]) -DestinationPath $args[3] -Force",
-			resolve(work, executableName),
-			resolve(work, "README.md"),
-			resolve(work, "LICENSE"),
+			"-NonInteractive",
+			"-File",
+			resolve(REPO_ROOT, "scripts/release/archive-cli.ps1"),
+			"-SourceDirectory",
+			work,
+			"-Destination",
 			destination,
 		]);
 	} else {
@@ -160,6 +161,13 @@ export function stageCli(input: {
 			"README.md",
 			"LICENSE",
 		]);
+	}
+	if (
+		!existsSync(destination) ||
+		!statSync(destination).isFile() ||
+		statSync(destination).size === 0
+	) {
+		throw new Error(`CLI archive was not produced: ${destination}.`);
 	}
 	rmSync(work, { recursive: true, force: true });
 	return destination;

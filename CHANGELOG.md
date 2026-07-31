@@ -5,6 +5,7 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
+- Fix Windows CLI ZIP creation with explicit PowerShell script parameters, require a nonempty archive before staging succeeds, and stop Windows release steps on native command failures.
 - Notarize and staple the final signed macOS DMG before validation and artifact staging; explicitly require Accepted notarization results for both DMG and CLI submissions.
 - Verify base tool executables during workspace setup after mise cache restoration and installation; reinstall a failed tool's configured version and require a successful recheck before installing dependencies. Rotate the mise cache namespace while retaining caching.
 - Temporarily remove third-party notice generation, packaging, release assets, and associated tooling. Keep the project LICENSE, checksums, manifest, and provenance attestations.

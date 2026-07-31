@@ -108,6 +108,9 @@ jobs:
           cache-mode: read-write
       - name: Test portable Rust crates
         run: mise exec -- cargo test -p acp-fixer-core -p acp-fixer-cli
+      - name: Test Windows CLI packaging
+        if: runner.os == 'Windows'
+        run: mise exec -- node --test scripts/__tests__/windows-archive.test.mts
       - name: Build unsigned desktop application
         run: mise exec -- just build-tauri
 
