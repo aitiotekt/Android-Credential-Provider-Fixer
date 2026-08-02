@@ -26,7 +26,11 @@ Android Credential Provider Fixer 是一个独立、默认仅在本地工作的�
 
 ## 开发
 
-项目通过 [mise](https://mise.jdx.dev/) 管理 Node 26.1.0、pnpm 12.1.0、Rust 1.98.0、Just 和 prek。
+项目通过 [mise](https://mise.jdx.dev/) 管理 Node 26.1.0、pnpm 12.1.0、Rust 1.98.0、Java 26、Gradle 9.7.1、Just 和 prek。本地默认要求 Android 工具链，CI 按任务选择。
+
+在 Android Studio 中打开仓库根目录。根 Gradle Wrapper 构建 `:webauthn-diagnosis` 模块，映射到 `apps/android-app/app`；通过 `ANDROID_HOME` 或根目录的本地 `local.properties` 配置 SDK 36。Android 仍独立于桌面管理发布版本。
+
+[WebAuthn 配套应用指南](005-WEBAUTHN-DIAGNOSIS.md) 介绍 `apps/android-app` 原生应用、`apps/webauthn-web` 静态测试站、隐私、版本命令、人工商店准备和待完成的真实提供方验收。新增目标使用 `just dev-web`、`just check-web`、`just check-android` 和 `just build-web`；Web package 版本跟随桌面，Android 使用 `just set-version VERSION --app android` 独立维护。
 
 ```sh
 mise trust

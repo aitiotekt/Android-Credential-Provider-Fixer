@@ -11,6 +11,8 @@ const parser = {
 } as SwcParserConfig & { explicitResourceManagement: true };
 
 const SWC_COMPAT_OPTIONS = {
+	// Runtime targets come from the shared engine map, not a package's TS target.
+	tsconfigFile: false,
 	jsc: {
 		parser,
 	},

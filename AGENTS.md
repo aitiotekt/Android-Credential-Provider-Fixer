@@ -14,6 +14,8 @@ _Single source of truth for agent behavior and project engineering rules._
 - `packages/core` must not depend on Tauri, Clap, or concrete process APIs.
 - `apps/tauri-app` owns the SolidJS UI, Tauri IPC, and the Tauri shell adapter.
 - `apps/cli` owns CLI presentation and the Tokio process adapter.
+- `apps/android-app` owns the native Kotlin/Compose WebAuthn guidance app. Use a small ViewModel state machine, not the desktop session service graph. Browser results are user-confirmed, not automatically known by the app.
+- `apps/webauthn-web` owns the static Solid WebAuthn diagnostic. Browser-local verification uses SimpleWebAuthn; its third-party ASN.1 dependency may transitively use `reflect-metadata`. This explicit exception does not allow application decorators or reflection DI.
 - Add shared packages only when a demonstrated boundary cannot live cleanly in `core`.
 - Model discoveries, selections, enumerations, diagnoses, previews, plans, executions, and snapshots as entities with opaque typed IDs, explicit parent IDs, and lifecycle states. Device properties, components, settings, findings, and errors are values.
 - A UI view must be derived from the workflow aggregate. Do not navigate independently to a page that requires an entity, and do not keep a diagnosis result visible when its ID differs from the backend's latest diagnosis ID.
@@ -34,6 +36,8 @@ _Single source of truth for agent behavior and project engineering rules._
 - Tauri capabilities must not grant shell execute or spawn access to the frontend.
 - Do not connect to or modify a real Android device unless the user explicitly requests it. Tests use mocks or fake executables.
 - Runtime behavior is local-only by default: no analytics, crash uploads, or silent downloads.
+- The WebAuthn companion is an explicit exception to desktop local-only behavior: it opens the fixed HTTPS test site. Creating real test passkeys requires user action and informed consent. Only the current page's memory holds test data; no response uploads, analytics, provider metadata fetches or automatic password-manager deletion. The `/webauthn/` path shares origin/RP identity with the documentation site.
+- WebAuthn CI uses Playwright Credentials only. It does not prove real Google/Bitwarden integration. Do not connect devices, install apps, create real credentials or upload to Play without the corresponding explicit authorization.
 
 ## Code Standards
 
@@ -41,6 +45,7 @@ _Single source of truth for agent behavior and project engineering rules._
 - Model timeouts, output limits, missing settings, and errors explicitly; do not collapse distinct states.
 - Comments explain why, not what. Avoid speculative abstractions and one-line file fragmentation.
 - TypeScript stays strict and uses explicit finite-state models instead of unrelated Boolean flags.
+- Represent extensible TypeScript string enums as `const` objects with `as const` and a same-named derived union type.
 - Diagnosis resources use `idle | resolving | resolved | failed`. Workflow transitions are reducer events with identity checks; page components must not coordinate domain navigation through unrelated `setStep` and data signals.
 - Frontend session state is owned by injected domain services. Stateful, application-internal services with one implementation use `class XxxService`: dependencies enter through the constructor, mutable state is `private`, extension-only APIs are `protected`, and the public surface is explicit. Public service methods belong on the prototype; do not emulate a service with a closure-returning `createXxxService()` plus a duplicate interface.
 - Keep `createXxx()` for narrow construction boundaries: stateless controllers, replaceable gateway/adapter factories, or reusable library APIs that intentionally hide multiple implementations. It is not the default for stateful application services.
@@ -66,6 +71,9 @@ _Single source of truth for agent behavior and project engineering rules._
 ## Tooling and Verification
 
 - Use versions declared by `mise.toml` and `rust-toolchain.toml`; do not treat host fallback versions as authoritative.
+- Java and Gradle are default local tools. CI limits tools with `mise.ci.toml`; Android jobs add `MISE_ENV=ci,android`. Build native Android with its checked-in Gradle Wrapper and never invoke ADB during ordinary verification.
+- Android uses AGP 9 built-in Kotlin. Keep its explicitly upgraded compiler dependency aligned with the Compose compiler plugin; do not reapply `org.jetbrains.kotlin.android` or opt out of the new DSL. The Gradle runtime JDK is separate from Java/Kotlin target 17 and Android SDK levels. Upgrade tooling without implicitly changing device compatibility, and update Wrapper scripts/JAR/checksum together with its distribution version.
+- Open the repository root in Android Studio. Keep a single root Gradle multi-project build and Wrapper; map `:webauthn-diagnosis` to `apps/android-app/app`. Use explicit module task paths in local and CI commands, root-local SDK configuration, and module-relative metadata paths. Android release identity/versioning remain independent; do not register pnpm or Cargo projects as Gradle modules.
 - Use `just` recipes for setup, formatting, linting, tests, builds, and docs.
 - After changing either icon master, run `just sync-icons`; `app-icon-macos-legacy.png` intentionally uses a transparent safe zone for the ICNS used by `tauri dev` and older macOS versions.
 - Before completing an iteration, run formatting, linting, type checking, relevant tests, and builds.
@@ -73,8 +81,12 @@ _Single source of truth for agent behavior and project engineering rules._
 - `acp-fixer-metadata.toml` is the release metadata and version source of truth. Release policy, artifact names, manifests, and ref validation belong in typed modules under `scripts/lib/release`; workflow YAML coordinates them and must not duplicate their policy.
 - Release branch automation may publish only alpha/beta versions. Stable releases require an exact version tag, protected approval, and mandatory macOS signing/notarization. Windows releases use GitHub Artifact Attestations and SHA-256 in every channel, without Authenticode, CA credentials, updater, or minisign keys. The manifest `signed` field means platform code signing only; provenance must not be presented as Windows Verified Publisher trust. macOS signing credentials stay in GitHub Environments and never enter source, reports, caches, or artifacts.
 - Every downloadable artifact must be represented in the release manifest, SHA-256 checksums, and GitHub provenance attestations. Release workflows must remain idempotent and must never overwrite mismatched assets in a published release.
+- `set-version --app default` and `--app desktop` update desktop/CLI and Web package versions together; Android has an independent versionName/versionCode and bilingual changelog. A changed Android version increments versionCode; a rebuilt upload may explicitly request a larger code. Web is a deployment target, not an independent SemVer line.
+- Web workflow builds documentation plus `/webauthn/` into one Pages artifact. Only main may deploy; release and PR builds never overwrite production. Android release is manually dispatched, store-only, and defaults to signed AAB build-only. Preserve AAB and checksum before optional Play internal upload; never silently succeed after upload failure or automatically replay uncertain commits. No public APK or Android GitHub Release.
 
 ## Documentation
+
+- Android changelog follows the same root-source convention: `CHANGELOG-ANDROID.md` is the English source, `docs/en/CHANGELOG-ANDROID.md` is a managed relative symlink, and `docs/zh/CHANGELOG-ANDROID.md` is the Chinese source. Do not keep duplicate Android changelogs under the app directory. Both docsite locales expose their own Android changelog route.
 
 - Root-level convention documents are English source files with suffixless names: `README.md`, `SECURITY.md`, `PRIVACY.md`, `CONTRIBUTING.md`, and `CHANGELOG.md`. Keep them at the repository root for maximum renderer and platform compatibility.
 - Do not add language-suffixed convention files such as `README.en.md` or `README.zh.md` at the repository root.

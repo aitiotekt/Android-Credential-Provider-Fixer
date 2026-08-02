@@ -1,5 +1,6 @@
 packages:
   - apps/tauri-app
+  - apps/webauthn-web
 
 allowBuilds:
   '@swc/core': true

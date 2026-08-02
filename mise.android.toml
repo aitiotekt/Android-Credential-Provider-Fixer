@@ -1,0 +1,3 @@
+[settings]
+# Use after the ci environment: MISE_ENV=ci,android.
+enable_tools = ["just", "node", "pnpm", "prek", "rust", "java", "gradle"]

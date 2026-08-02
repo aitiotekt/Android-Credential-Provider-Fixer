@@ -20,42 +20,72 @@ import { type DiagnosisService } from "./diagnosis";
 import { observeDomainEvent } from "./event";
 import {
 	type EntityResource,
+	type EntityResourceState,
 	entityOf,
 	lastEntityOf,
 	type OperationResult,
 } from "./resource";
 import { type SnapshotService } from "./snapshots";
 
+export const WorkflowViewKind = {
+	Adb: "adb",
+	Devices: "devices",
+	Confirmation: "confirmation",
+	Diagnosing: "diagnosing",
+	DiagnosisError: "diagnosisError",
+	Result: "result",
+	Preview: "preview",
+	Plan: "plan",
+	Applying: "applying",
+	Outcome: "outcome",
+	Snapshots: "snapshots",
+} as const;
+export type WorkflowViewKind =
+	(typeof WorkflowViewKind)[keyof typeof WorkflowViewKind];
+
 export type WorkflowView =
-	| { kind: "adb" }
-	| { kind: "devices"; enumeration: DeviceList }
-	| { kind: "confirmation"; selection: DeviceSelectionEntity }
+	| { kind: typeof WorkflowViewKind.Adb }
+	| { kind: typeof WorkflowViewKind.Devices; enumeration: DeviceList }
 	| {
-			kind: "diagnosing";
+			kind: typeof WorkflowViewKind.Confirmation;
+			selection: DeviceSelectionEntity;
+	  }
+	| {
+			kind: typeof WorkflowViewKind.Diagnosing;
 			resource: Extract<
 				EntityResource<
 					DiagnosisEntity,
 					{ enumerationId: string; deviceId: string }
 				>,
-				{ state: "resolving" }
+				{ state: typeof EntityResourceState.Resolving }
 			>;
 	  }
 	| {
-			kind: "diagnosisError";
+			kind: typeof WorkflowViewKind.DiagnosisError;
 			resource: Extract<
 				EntityResource<
 					DiagnosisEntity,
 					{ enumerationId: string; deviceId: string }
 				>,
-				{ state: "failed" }
+				{ state: typeof EntityResourceState.Failed }
 			>;
 	  }
-	| { kind: "result"; diagnosis: DiagnosisEntity }
-	| { kind: "preview"; preview: ChangePreview }
-	| { kind: "plan"; plan: ChangePlan }
-	| { kind: "applying"; plan: ChangePlan }
-	| { kind: "outcome"; execution: ChangeExecution }
-	| { kind: "snapshots"; inventory: SnapshotInventory };
+	| { kind: typeof WorkflowViewKind.Result; diagnosis: DiagnosisEntity }
+	| { kind: typeof WorkflowViewKind.Preview; preview: ChangePreview }
+	| { kind: typeof WorkflowViewKind.Plan; plan: ChangePlan }
+	| { kind: typeof WorkflowViewKind.Applying; plan: ChangePlan }
+	| { kind: typeof WorkflowViewKind.Outcome; execution: ChangeExecution }
+	| {
+			kind: typeof WorkflowViewKind.Snapshots;
+			inventory: SnapshotInventory;
+	  };
+
+const RecoveryLevel = {
+	Adb: "adb",
+	Device: "device",
+	Diagnosis: "diagnosis",
+} as const;
+type RecoveryLevel = (typeof RecoveryLevel)[keyof typeof RecoveryLevel];
 
 const STALE_ADB = new Set(["ADB_SELECTION_STALE"]);
 const STALE_DEVICE = new Set(["DEVICE_SELECTION_REQUIRED", "DEVICE_CHANGED"]);
@@ -315,7 +345,7 @@ export class WorkflowService implements Disposable {
 
 	private async handle(
 		result: OperationResult,
-		recoveryLevel?: "adb" | "device" | "diagnosis",
+		recoveryLevel?: RecoveryLevel,
 	): Promise<void> {
 		if (result.ok) {
 			this.setError(undefined);
@@ -324,11 +354,11 @@ export class WorkflowService implements Disposable {
 		this.setError(result.error);
 		const code = result.error.code;
 		const inferred = STALE_ADB.has(code)
-			? "adb"
+			? RecoveryLevel.Adb
 			: STALE_DEVICE.has(code)
-				? "device"
+				? RecoveryLevel.Device
 				: STALE_DIAGNOSIS.has(code)
-					? "diagnosis"
+					? RecoveryLevel.Diagnosis
 					: undefined;
 		const recovery = inferred ?? recoveryLevel;
 		if (!inferred || !recovery) {
@@ -339,9 +369,9 @@ export class WorkflowService implements Disposable {
 		if (recoveryId !== this.recoveryGeneration) {
 			return;
 		}
-		if (recovery === "adb") {
+		if (recovery === RecoveryLevel.Adb) {
 			await this.adb.discover();
-		} else if (recovery === "device") {
+		} else if (recovery === RecoveryLevel.Device) {
 			await this.devices.list();
 		} else {
 			await this.diagnoses.resolve();

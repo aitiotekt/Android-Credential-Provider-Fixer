@@ -105,18 +105,20 @@ export function blockerMessage(
 	return messages.changeBlockers[blocker];
 }
 
-export type WorkflowStep =
-	| "welcome"
-	| "adb"
-	| "devices"
-	| "confirm"
-	| "diagnosing"
-	| "result"
-	| "plan"
-	| "planConfirm"
-	| "applying"
-	| "outcome"
-	| "snapshots";
+export const WorkflowStep = {
+	Welcome: "welcome",
+	Adb: "adb",
+	Devices: "devices",
+	Confirm: "confirm",
+	Diagnosing: "diagnosing",
+	Result: "result",
+	Plan: "plan",
+	PlanConfirm: "planConfirm",
+	Applying: "applying",
+	Outcome: "outcome",
+	Snapshots: "snapshots",
+} as const;
+export type WorkflowStep = (typeof WorkflowStep)[keyof typeof WorkflowStep];
 
 export function workflowStep(view: WorkflowView): WorkflowStep {
 	switch (view.kind) {

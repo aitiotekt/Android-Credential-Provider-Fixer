@@ -22,6 +22,11 @@ const documents = [
 		zh: "分发与商店准备",
 	},
 	{ slug: "100-ROADMAP", en: "Roadmap", zh: "路线图" },
+	{
+		slug: "005-WEBAUTHN-DIAGNOSIS",
+		en: "WebAuthn Diagnosis",
+		zh: "WebAuthn 诊断",
+	},
 ] as const;
 
 function sidebar(prefix: string, language: "en" | "zh") {
@@ -53,12 +58,18 @@ function rewriteLocalHref(href: string, sourcePath: string): string {
 		sourcePath.replace(/\\/g, "/"),
 	);
 	const root = chineseSource ? "/zh" : "";
+	const androidChangelog = normalized.match(
+		/^(?:docs\/|\.\.\/)(en|zh)\/CHANGELOG-ANDROID\.md$/i,
+	);
+	if (androidChangelog) {
+		return `${androidChangelog[1].toLowerCase() === "zh" ? "/zh" : ""}/changelog-android${suffix}`;
+	}
 
 	if (/^README\.md$/i.test(normalized)) {
 		return `/${suffix}`;
 	}
 	const rootConvention = normalized.match(
-		/^(?:\.\.\/){2}(README|SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG)\.md$/i,
+		/^(?:\.\.\/){2}(README|SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG|CHANGELOG-ANDROID)\.md$/i,
 	);
 	if (rootConvention) {
 		return rootConvention[1].toUpperCase() === "README"
@@ -66,7 +77,7 @@ function rewriteLocalHref(href: string, sourcePath: string): string {
 			: `/${rootConvention[1].toLowerCase()}${suffix}`;
 	}
 	const policy = normalized.match(
-		/^(SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG)\.md$/i,
+		/^(SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG|CHANGELOG-ANDROID)\.md$/i,
 	);
 	if (policy) {
 		return `${root}/${policy[1].toLowerCase()}${suffix}`;
@@ -99,6 +110,8 @@ export default defineConfig({
 	title: "Android Credential Provider Fixer",
 	description: "Local-first diagnostics for Android Credential Provider state.",
 	base: "/",
+	// This route is supplied by the separately built SPA in the Pages assembly.
+	ignoreDeadLinks: [/^\/webauthn\/(?:index)?$/],
 	cleanUrls: true,
 	lastUpdated: true,
 	sitemap: {
@@ -161,11 +174,13 @@ export default defineConfig({
 			lang: "en",
 			themeConfig: {
 				nav: [
+					{ text: "WebAuthn test", link: "/webauthn/" },
 					{ text: "Home", link: "/" },
 					{ text: "Docs", link: "/docs/000-OVERVIEW", activeMatch: "^/docs/" },
 					{ text: "Security", link: "/security" },
 					{ text: "Privacy", link: "/privacy" },
 					{ text: "Changelog", link: "/changelog" },
+					{ text: "Android changelog", link: "/changelog-android" },
 				],
 				sidebar: { "/docs/": sidebar("/docs", "en") },
 			},
@@ -177,6 +192,7 @@ export default defineConfig({
 			themeConfig: {
 				nav: [
 					{ text: "首页", link: "/zh/" },
+					{ text: "WebAuthn 测试", link: "/webauthn/" },
 					{
 						text: "文档",
 						link: "/zh/docs/000-OVERVIEW",
@@ -185,6 +201,7 @@ export default defineConfig({
 					{ text: "安全", link: "/zh/security" },
 					{ text: "隐私", link: "/zh/privacy" },
 					{ text: "变更日志", link: "/zh/changelog" },
+					{ text: "Android 变更日志", link: "/zh/changelog-android" },
 				],
 				sidebar: { "/zh/docs/": sidebar("/zh/docs", "zh") },
 			},

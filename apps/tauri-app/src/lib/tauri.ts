@@ -11,8 +11,20 @@ export type AppInfo = {
 	adbWriteOperationsEnabled: boolean;
 };
 
-export type OnboardingStatus = "completed" | "skipped";
-export type ThemePreference = "system" | "light" | "dark";
+export const OnboardingStatus = {
+	Completed: "completed",
+	Skipped: "skipped",
+} as const;
+export type OnboardingStatus =
+	(typeof OnboardingStatus)[keyof typeof OnboardingStatus];
+
+export const ThemePreference = {
+	System: "system",
+	Light: "light",
+	Dark: "dark",
+} as const;
+export type ThemePreference =
+	(typeof ThemePreference)[keyof typeof ThemePreference];
 export type EntityId<_Name extends string> = string;
 export type DiscoveryId = EntityId<"Discovery">;
 export type AdbSelectionId = EntityId<"AdbSelection">;
@@ -40,15 +52,20 @@ export type StartupState = {
 	preferenceWarning: ErrorEnvelope | null;
 };
 
+export const AdbCandidateSource = {
+	Explicit: "explicit",
+	Saved: "saved",
+	Path: "path",
+	AndroidHome: "androidHome",
+	AndroidSdkRoot: "androidSdkRoot",
+	CommonLocation: "commonLocation",
+} as const;
+export type AdbCandidateSource =
+	(typeof AdbCandidateSource)[keyof typeof AdbCandidateSource];
+
 export type AdbCandidate = {
 	candidateId: string;
-	source:
-		| "explicit"
-		| "saved"
-		| "path"
-		| "androidHome"
-		| "androidSdkRoot"
-		| "commonLocation";
+	source: AdbCandidateSource;
 	adb: ValidatedAdb;
 };
 
@@ -70,18 +87,28 @@ export type AdbSelection = {
 	adb: ValidatedAdb;
 };
 
-export type DeviceState =
-	| "device"
-	| "unauthorized"
-	| "offline"
-	| "noPermissions"
-	| "unknown";
+export const DeviceState = {
+	Device: "device",
+	Unauthorized: "unauthorized",
+	Offline: "offline",
+	NoPermissions: "noPermissions",
+	Unknown: "unknown",
+} as const;
+export type DeviceState = (typeof DeviceState)[keyof typeof DeviceState];
+
+export const ConnectionType = {
+	Usb: "usb",
+	Wireless: "wireless",
+	Unknown: "unknown",
+} as const;
+export type ConnectionType =
+	(typeof ConnectionType)[keyof typeof ConnectionType];
 
 export type DeviceChoice = {
 	deviceId: DeviceId;
 	serial: string;
 	state: DeviceState;
-	connectionType: "usb" | "wireless" | "unknown";
+	connectionType: ConnectionType;
 	product: string | null;
 	model: string | null;
 	device: string | null;
@@ -104,11 +131,28 @@ export type ComponentName = {
 	serviceClass: string;
 };
 
+export const SettingValueKind = {
+	Missing: "missing",
+	Empty: "empty",
+	Value: "value",
+	Unavailable: "unavailable",
+} as const;
+export type SettingValueKind =
+	(typeof SettingValueKind)[keyof typeof SettingValueKind];
+
 export type SettingValue =
-	| { kind: "missing" }
-	| { kind: "empty" }
-	| { kind: "value"; raw: string; components: ComponentName[] | null }
-	| { kind: "unavailable"; code: string; message: string };
+	| { kind: typeof SettingValueKind.Missing }
+	| { kind: typeof SettingValueKind.Empty }
+	| {
+			kind: typeof SettingValueKind.Value;
+			raw: string;
+			components: ComponentName[] | null;
+	  }
+	| {
+			kind: typeof SettingValueKind.Unavailable;
+			code: string;
+			message: string;
+	  };
 
 export type SettingObservation = {
 	key: string;
@@ -117,13 +161,13 @@ export type SettingObservation = {
 
 export type DiagnosisReport = {
 	schemaVersion: number;
-	mode: "real" | "demo";
-	completeness: "complete" | "incomplete" | "unsupported";
+	mode: SessionMode;
+	completeness: DiagnosisCompleteness;
 	observedAtUnixMs: number;
 	adb: ValidatedAdb;
 	device: {
 		serial: string;
-		connectionType: "usb" | "wireless" | "unknown";
+		connectionType: ConnectionType;
 		manufacturer: string;
 		model: string;
 		codename: string;
@@ -144,7 +188,7 @@ export type DiagnosisReport = {
 	};
 	findings: Array<{
 		code: string;
-		severity: "info" | "warning";
+		severity: FindingSeverity;
 		relatedValue: string | null;
 	}>;
 };
@@ -174,30 +218,66 @@ export type SessionContext = {
 	latestDiagnosisId: DiagnosisId | null;
 };
 
+export const SessionMode = {
+	Real: "real",
+	Demo: "demo",
+} as const;
+export type SessionMode = (typeof SessionMode)[keyof typeof SessionMode];
+
+export const DiagnosisCompleteness = {
+	Complete: "complete",
+	Incomplete: "incomplete",
+	Unsupported: "unsupported",
+} as const;
+export type DiagnosisCompleteness =
+	(typeof DiagnosisCompleteness)[keyof typeof DiagnosisCompleteness];
+
+export const FindingSeverity = {
+	Info: "info",
+	Warning: "warning",
+} as const;
+export type FindingSeverity =
+	(typeof FindingSeverity)[keyof typeof FindingSeverity];
+
 export type ManagedSettingValue =
-	| { kind: "missing" }
-	| { kind: "empty" }
-	| { kind: "value"; raw: string; parseable: boolean };
+	| { kind: typeof SettingValueKind.Missing }
+	| { kind: typeof SettingValueKind.Empty }
+	| { kind: typeof SettingValueKind.Value; raw: string; parseable: boolean };
 
 export type ManagedCredentialState = {
 	enabled: ManagedSettingValue;
 	primary: ManagedSettingValue;
 };
 
-export type ChangeKind = "pin" | "restore";
-export type ChangeBlocker =
-	| "ANDROID_VERSION_UNSUPPORTED"
-	| "DIAGNOSIS_UNAVAILABLE"
-	| "TARGET_NOT_REGISTERED"
-	| "UNPARSED_CONFIRMATION_REQUIRED"
-	| "STATE_CHANGED"
-	| "SNAPSHOT_NOT_RESTORABLE"
-	| "NO_CHANGE_REQUIRED";
+export const ChangeKind = {
+	Pin: "pin",
+	Restore: "restore",
+} as const;
+export type ChangeKind = (typeof ChangeKind)[keyof typeof ChangeKind];
+
+export const ChangeBlocker = {
+	AndroidVersionUnsupported: "ANDROID_VERSION_UNSUPPORTED",
+	DiagnosisUnavailable: "DIAGNOSIS_UNAVAILABLE",
+	TargetNotRegistered: "TARGET_NOT_REGISTERED",
+	UnparsedConfirmationRequired: "UNPARSED_CONFIRMATION_REQUIRED",
+	StateChanged: "STATE_CHANGED",
+	SnapshotNotRestorable: "SNAPSHOT_NOT_RESTORABLE",
+	NoChangeRequired: "NO_CHANGE_REQUIRED",
+} as const;
+export type ChangeBlocker = (typeof ChangeBlocker)[keyof typeof ChangeBlocker];
+
+export const ChangePreviewStatus = {
+	Ready: "ready",
+	Consumed: "consumed",
+	Invalidated: "invalidated",
+} as const;
+export type ChangePreviewStatus =
+	(typeof ChangePreviewStatus)[keyof typeof ChangePreviewStatus];
 export type ChangePreview = {
 	schemaVersion: number;
 	previewId: PreviewId;
 	revision: number;
-	status: "ready" | "consumed" | "invalidated";
+	status: ChangePreviewStatus;
 	sourceDiagnosisId: DiagnosisId;
 	sourceSnapshotId: SnapshotId | null;
 	kind: ChangeKind;
@@ -221,13 +301,7 @@ export type ChangePlan = {
 	sourcePreviewId: PreviewId;
 	sourceDiagnosisId: DiagnosisId;
 	sourceSnapshotId: SnapshotId | null;
-	status:
-		| "ready"
-		| "executing"
-		| "cancelled"
-		| "expired"
-		| "invalidated"
-		| "completed";
+	status: ChangePlanStatus;
 	createdAtUnixMs: number;
 	expiresAtUnixMs: number;
 	kind: ChangeKind;
@@ -238,36 +312,75 @@ export type ChangePlan = {
 	after: ManagedCredentialState;
 };
 
+export const ChangePlanStatus = {
+	Ready: "ready",
+	Executing: "executing",
+	Cancelled: "cancelled",
+	Expired: "expired",
+	Invalidated: "invalidated",
+	Completed: "completed",
+} as const;
+export type ChangePlanStatus =
+	(typeof ChangePlanStatus)[keyof typeof ChangePlanStatus];
+
+export const ChangeOutcomeStatus = {
+	Applied: "applied",
+	Restored: "restored",
+	Recovered: "recovered",
+	RecoveryFailed: "recoveryFailed",
+} as const;
+export type ChangeOutcomeStatus =
+	(typeof ChangeOutcomeStatus)[keyof typeof ChangeOutcomeStatus];
+
 export type ChangeOutcome = {
 	schemaVersion: number;
 	planId: PlanId;
 	snapshotId: SnapshotId;
-	status: "applied" | "restored" | "recovered" | "recoveryFailed";
+	status: ChangeOutcomeStatus;
 	completedAtUnixMs: number;
 	steps: Array<{ key: string; success: boolean; error: string | null }>;
 	recoverySteps: Array<{ key: string; success: boolean; error: string | null }>;
 	observed: ManagedCredentialState;
 };
 
+export const ChangeExecutionStatus = {
+	Applied: "applied",
+	Restored: "restored",
+	Recovered: "recovered",
+	RecoveryFailed: "recoveryFailed",
+	Cancelled: "cancelled",
+	Expired: "expired",
+	Invalidated: "invalidated",
+} as const;
+export type ChangeExecutionStatus =
+	(typeof ChangeExecutionStatus)[keyof typeof ChangeExecutionStatus];
+
 export type ChangeExecution = {
 	schemaVersion: number;
 	executionId: ExecutionId;
 	planId: PlanId;
 	sourceDiagnosisId: DiagnosisId;
-	status:
-		| "applied"
-		| "restored"
-		| "recovered"
-		| "recoveryFailed"
-		| "cancelled"
-		| "expired"
-		| "invalidated";
+	status: ChangeExecutionStatus;
 	writeAttempted: boolean;
 	completedAtUnixMs: number;
 	outcome: ChangeOutcome | null;
 	error: ErrorEnvelope | null;
 	persistenceWarning: ErrorEnvelope | null;
 };
+
+export const SnapshotStatus = {
+	Planned: "planned",
+	Executing: "executing",
+	Cancelled: "cancelled",
+	Expired: "expired",
+	Invalidated: "invalidated",
+	Applied: "applied",
+	Recovered: "recovered",
+	RecoveryFailed: "recoveryFailed",
+	Restored: "restored",
+} as const;
+export type SnapshotStatus =
+	(typeof SnapshotStatus)[keyof typeof SnapshotStatus];
 
 export type SnapshotRecord = {
 	schemaVersion: number;
@@ -278,16 +391,7 @@ export type SnapshotRecord = {
 	sourceSnapshotId: SnapshotId | null;
 	createdAtUnixMs: number;
 	updatedAtUnixMs: number;
-	status:
-		| "planned"
-		| "executing"
-		| "cancelled"
-		| "expired"
-		| "invalidated"
-		| "applied"
-		| "recovered"
-		| "recoveryFailed"
-		| "restored";
+	status: SnapshotStatus;
 	kind: ChangeKind;
 	adb: ValidatedAdb;
 	device: DiagnosisReport["device"];

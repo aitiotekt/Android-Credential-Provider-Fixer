@@ -1,0 +1,31 @@
+{
+	"name": "@aitiotekt/webauthn-web",
+	"version": "0.1.0-beta.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite --host 127.0.0.1",
+		"build": "vite build",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:browser": "playwright test"
+	},
+	"dependencies": {
+		"@simplewebauthn/browser": "13.2.2",
+		"@simplewebauthn/server": "14.0.1",
+		"solid-js": "2.0.0-rc.4",
+		"@solidjs/web": "2.0.0-rc.4",
+		"core-js": "3.50.0"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.61.0",
+		"@swc/core": "1.16.1",
+		"@tailwindcss/vite": "4.3.3",
+		"tailwindcss": "4.3.3",
+		"typescript": "7.0.2",
+		"unplugin-swc": "1.5.11",
+		"vite": "8.2.2",
+		"vite-plugin-solid": "3.0.0-next.27",
+		"vitest": "4.1.11"
+	}
+}

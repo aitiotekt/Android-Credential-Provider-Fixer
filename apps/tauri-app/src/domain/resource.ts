@@ -2,6 +2,16 @@ import { type ErrorEnvelope } from "../lib/tauri";
 
 export type ParentReference = object;
 
+export const EntityResourceState = {
+	Idle: "idle",
+	Resolving: "resolving",
+	Resolved: "resolved",
+	Failed: "failed",
+	Invalidated: "invalidated",
+} as const;
+export type EntityResourceState =
+	(typeof EntityResourceState)[keyof typeof EntityResourceState];
+
 export type InvalidationCause = {
 	eventId: string;
 	kind: string;
@@ -14,22 +24,26 @@ export type EntityResource<
 	T,
 	Parent extends ParentReference = ParentReference,
 > =
-	| { state: "idle" }
+	| { state: typeof EntityResourceState.Idle }
 	| {
-			state: "resolving";
+			state: typeof EntityResourceState.Resolving;
 			requestId: string;
 			parent: Parent;
 			startedAtRevision: number;
 	  }
-	| { state: "resolved"; entity: T; parent: Parent }
 	| {
-			state: "failed";
+			state: typeof EntityResourceState.Resolved;
+			entity: T;
+			parent: Parent;
+	  }
+	| {
+			state: typeof EntityResourceState.Failed;
 			requestId: string;
 			parent: Parent;
 			error: ErrorEnvelope;
 	  }
 	| {
-			state: "invalidated";
+			state: typeof EntityResourceState.Invalidated;
 			lastEntity?: T;
 			parent?: Parent;
 			cause: InvalidationCause;

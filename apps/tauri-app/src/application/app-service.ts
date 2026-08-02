@@ -13,10 +13,22 @@ import {
 } from "../lib/tauri";
 import { type ResolvedTheme, ThemeController } from "../theme/theme";
 
+export const AppResourceState = {
+	Loading: "loading",
+	Ready: "ready",
+	Failed: "failed",
+} as const;
+export type AppResourceState =
+	(typeof AppResourceState)[keyof typeof AppResourceState];
+
 export type AppResource =
-	| { state: "loading" }
-	| { state: "ready"; info: AppInfo; startup: StartupState }
-	| { state: "failed"; error: ErrorEnvelope };
+	| { state: typeof AppResourceState.Loading }
+	| {
+			state: typeof AppResourceState.Ready;
+			info: AppInfo;
+			startup: StartupState;
+	  }
+	| { state: typeof AppResourceState.Failed; error: ErrorEnvelope };
 
 export class AppService implements Disposable {
 	readonly resource: Accessor<AppResource>;

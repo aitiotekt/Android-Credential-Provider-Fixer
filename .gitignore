@@ -17,6 +17,17 @@ temp/*
 **/*.tsbuildinfo
 **/coverage/
 **/test-results/
+**/playwright-report/
+
+# Android (upload keys must never be committed)
+**/.gradle/
+**/.kotlin/
+/build/
+apps/android-app/**/build/
+/local.properties
+apps/android-app/local.properties
+**/*.jks
+**/*.keystore
 
 # Rust and Tauri
 target/

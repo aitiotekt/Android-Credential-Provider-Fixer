@@ -60,6 +60,7 @@ export function checkVersion(): { version: string; sourceCount: number } {
 		"package.json",
 		"apps/tauri-app/package.json",
 		"docsite/package.json",
+		"apps/webauthn-web/package.json",
 	]) {
 		const value = readJson(path).version;
 		if (typeof value !== "string") {
@@ -140,6 +141,7 @@ export function setVersion(version: string): { version: string } {
 		"package.json",
 		"apps/tauri-app/package.json",
 		"docsite/package.json",
+		"apps/webauthn-web/package.json",
 	]) {
 		const json = readJson(path);
 		json.version = version;

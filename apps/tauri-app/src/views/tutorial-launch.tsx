@@ -1,7 +1,12 @@
 import { type Messages } from "../i18n/translations";
 import { Button, Panel } from "../ui/primitives";
 
-export type TutorialLaunchPrompt = "switchLive" | "restartDemo";
+export const TutorialLaunchPrompt = {
+	SwitchLive: "switchLive",
+	RestartDemo: "restartDemo",
+} as const;
+export type TutorialLaunchPrompt =
+	(typeof TutorialLaunchPrompt)[keyof typeof TutorialLaunchPrompt];
 
 export function TutorialLaunchDialog(props: {
 	kind: TutorialLaunchPrompt;
@@ -9,7 +14,7 @@ export function TutorialLaunchDialog(props: {
 	onCancel: () => void;
 	onConfirm: () => void;
 }) {
-	const switchesFromLive = () => props.kind === "switchLive";
+	const switchesFromLive = () => props.kind === TutorialLaunchPrompt.SwitchLive;
 	return (
 		<div class="fixed inset-0 z-50 grid place-items-center bg-overlay p-4">
 			<Panel

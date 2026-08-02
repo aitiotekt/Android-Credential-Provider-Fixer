@@ -8,6 +8,19 @@ identifier = "com.aitiotekt.acp-fixer"
 repository_url = "https://github.com/aitiotekt/Android-Credential-Provider-Fixer"
 docs_url = "https://acp-fixer.aitiotekt.com/"
 
+[android]
+version = "0.1.0-alpha.1"
+version_code = 1
+display_name = "WebAuthn Diagnosis"
+display_name_zh = "WebAuthn 诊断"
+identifier = "com.aitiotekt.webauthndiagnosis"
+test_url = "https://acp-fixer.aitiotekt.com/webauthn/"
+publish = "build-only"
+
+[web]
+base = "/webauthn/"
+deploy_branch = "main"
+
 [release]
 branch = "release"
 tag_prefix = "v"

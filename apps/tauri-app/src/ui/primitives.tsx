@@ -7,13 +7,36 @@ export function cx(...classes: unknown[]) {
 		.join(" ");
 }
 
-export type ControlSize = "xs" | "sm" | "md" | "lg" | "xl";
+export const ControlSize = {
+	Xs: "xs",
+	Sm: "sm",
+	Md: "md",
+	Lg: "lg",
+	Xl: "xl",
+} as const;
+export type ControlSize = (typeof ControlSize)[keyof typeof ControlSize];
+
+export const ControlVariant = {
+	Solid: "solid",
+	Subtle: "subtle",
+	Surface: "surface",
+	Outline: "outline",
+	Plain: "plain",
+} as const;
 export type ControlVariant =
-	| "solid"
-	| "subtle"
-	| "surface"
-	| "outline"
-	| "plain";
+	(typeof ControlVariant)[keyof typeof ControlVariant];
+
+export const ButtonTone = {
+	Accent: "accent",
+	Danger: "danger",
+} as const;
+export type ButtonTone = (typeof ButtonTone)[keyof typeof ButtonTone];
+
+const CheckboxTone = {
+	Neutral: "neutral",
+	Danger: "danger",
+} as const;
+type CheckboxTone = (typeof CheckboxTone)[keyof typeof CheckboxTone];
 
 const controlSizes: Record<ControlSize, string> = {
 	xs: "min-h-8 px-3 text-xs",
@@ -39,7 +62,7 @@ const controlVariants: Record<ControlVariant, string> = {
 export type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	size?: ControlSize;
 	variant?: ControlVariant;
-	tone?: "accent" | "danger";
+	tone?: ButtonTone;
 };
 
 export function Button(props: ParentProps<ButtonProps>) {
@@ -52,15 +75,15 @@ export function Button(props: ParentProps<ButtonProps>) {
 		"children",
 	);
 	const tone = () =>
-		props.tone === "danger"
+		props.tone === ButtonTone.Danger
 			? "border-danger bg-danger text-danger-contrast hover:bg-danger-hover active:bg-danger-active"
-			: controlVariants[props.variant ?? "surface"];
+			: controlVariants[props.variant ?? ControlVariant.Surface];
 	return (
 		<button
 			{...buttonProps}
 			class={cx(
 				"inline-flex cursor-pointer items-center justify-center gap-2 rounded-l1 border font-semibold transition-colors duration-150 outline-none focus-visible:ring-3 focus-visible:ring-focus/35 disabled:cursor-not-allowed disabled:opacity-45",
-				controlSizes[props.size ?? "md"],
+				controlSizes[props.size ?? ControlSize.Md],
 				tone(),
 				props.class,
 			)}
@@ -116,7 +139,13 @@ export function Card(props: ParentProps<JSX.HTMLAttributes<HTMLElement>>) {
 	);
 }
 
-type BadgeTone = "accent" | "warning" | "danger" | "neutral";
+const BadgeTone = {
+	Accent: "accent",
+	Warning: "warning",
+	Danger: "danger",
+	Neutral: "neutral",
+} as const;
+type BadgeTone = (typeof BadgeTone)[keyof typeof BadgeTone];
 
 export function Badge(
 	props: ParentProps<
@@ -135,7 +164,7 @@ export function Badge(
 			{...badgeProps}
 			class={cx(
 				"inline-flex min-h-6 w-fit items-center rounded-full px-2.5 text-xs font-semibold",
-				tones[props.tone ?? "neutral"],
+				tones[props.tone ?? BadgeTone.Neutral],
 				props.class,
 			)}
 		>
@@ -144,7 +173,13 @@ export function Badge(
 	);
 }
 
-type NoticeTone = "info" | "warning" | "danger" | "success";
+const NoticeTone = {
+	Info: "info",
+	Warning: "warning",
+	Danger: "danger",
+	Success: "success",
+} as const;
+type NoticeTone = (typeof NoticeTone)[keyof typeof NoticeTone];
 
 export function Notice(
 	props: ParentProps<
@@ -163,7 +198,7 @@ export function Notice(
 			{...noticeProps}
 			class={cx(
 				"flex flex-wrap items-start gap-2 rounded-l2 border px-4 py-3 text-sm leading-6",
-				tones[props.tone ?? "info"],
+				tones[props.tone ?? NoticeTone.Info],
 				props.class,
 			)}
 		>
@@ -187,7 +222,7 @@ export function Field(
 export function Checkbox(
 	props: ParentProps<
 		Omit<JSX.InputHTMLAttributes<HTMLInputElement>, "type"> & {
-			tone?: "neutral" | "danger";
+			tone?: CheckboxTone;
 		}
 	>,
 ) {
@@ -196,7 +231,7 @@ export function Checkbox(
 		<label
 			class={cx(
 				"flex cursor-pointer items-start gap-3 rounded-l2 border p-4 text-sm leading-6",
-				props.tone === "danger"
+				props.tone === CheckboxTone.Danger
 					? "border-warning-border bg-warning-subtle text-fg"
 					: "border-border-strong bg-surface text-fg",
 				props.class,
@@ -256,7 +291,12 @@ export function SegmentedControl<T extends string>(props: {
 	);
 }
 
-export type ProgressState = "completed" | "current" | "upcoming";
+export const ProgressState = {
+	Completed: "completed",
+	Current: "current",
+	Upcoming: "upcoming",
+} as const;
+export type ProgressState = (typeof ProgressState)[keyof typeof ProgressState];
 export type ProgressItem = { label: string; state: ProgressState };
 
 export function ProgressSteps(props: { label: string; items: ProgressItem[] }) {

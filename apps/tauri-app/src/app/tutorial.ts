@@ -6,18 +6,20 @@ let activeDriver: Driver | undefined;
 let activeTargetMissing: ((selector: string) => void) | undefined;
 let advanceGeneration = 0;
 
-export type TutorialScene =
-	| "adb"
-	| "devices"
-	| "confirmation"
-	| "diagnosis"
-	| "pinPreview"
-	| "pinConfirmation"
-	| "pinOutcome"
-	| "snapshots"
-	| "restorePreview"
-	| "restoreConfirmation"
-	| "restoreOutcome";
+export const TutorialScene = {
+	Adb: "adb",
+	Devices: "devices",
+	Confirmation: "confirmation",
+	Diagnosis: "diagnosis",
+	PinPreview: "pinPreview",
+	PinConfirmation: "pinConfirmation",
+	PinOutcome: "pinOutcome",
+	Snapshots: "snapshots",
+	RestorePreview: "restorePreview",
+	RestoreConfirmation: "restoreConfirmation",
+	RestoreOutcome: "restoreOutcome",
+} as const;
+export type TutorialScene = (typeof TutorialScene)[keyof typeof TutorialScene];
 
 type TutorialStepData = {
 	scene: TutorialScene;

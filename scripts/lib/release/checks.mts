@@ -66,7 +66,8 @@ export function checkPublicationWorkflow(source: string): void {
 const WORKFLOWS = [
 	".github/workflows/tests.yml",
 	".github/workflows/release.yml",
-	".github/workflows/docs.yml",
+	".github/workflows/web.yml",
+	".github/workflows/android.yml",
 ] as const;
 const COMPOSITE_ACTIONS = [
 	".github/actions/setup-workspace/action.yml",

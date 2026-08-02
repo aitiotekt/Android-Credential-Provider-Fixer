@@ -5,6 +5,12 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
+- Publish the independent Android changelog from a root English source and mirrored language documents, with managed docsite links and bilingual navigation.
+- Upgrade Android build tooling to JDK 26, Gradle 9.7.1, AGP 9.4.0 and Kotlin/Compose 2.4.20 with built-in Kotlin; keep JVM target 17 and Android SDK compatibility unchanged.
+- Move the Android Gradle entry point and Wrapper to the repository root, with the `:webauthn-diagnosis` module, so Android Studio opens the full monorepo. Preserve application identity and independent versioning.
+- Add the WebAuthn Diagnosis Android companion and a static, memory-only WebAuthn test site with browser-local registration/signature verification and virtual-credential Playwright coverage.
+- Separate manually triggered Android signed-AAB/store publishing from desktop releases. Add independent Android versions/changelogs and `set-version --app`; keep Web package versions aligned with desktop.
+- Replace Docs deployment with one main-only Web deployment combining VitePress and `/webauthn/`; add default local Java/Gradle tooling with CI-specific selection. Real provider and Play acceptance remain manual.
 - Fix publication after intentionally skipped jobs; configure tagger identity, isolate platform inputs on reruns, use the actual Release run URL, revalidate downloaded/uploaded assets before publication, and fail the workflow if publication does not complete.
 - Fix Windows CLI ZIP creation with explicit PowerShell script parameters, require a nonempty archive before staging succeeds, and stop Windows release steps on native command failures.
 - Notarize and staple the final signed macOS DMG before validation and artifact staging; explicitly require Accepted notarization results for both DMG and CLI submissions.

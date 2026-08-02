@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">WebAuthn Diagnosis</string>
+    <string name="preparation">Prepare your test</string>
+    <string name="android_version">Android %1$s · API %2$d</string>
+    <string name="support_modern">Android 14+ can support third-party credential providers. Actual behavior depends on the device, browser and password manager.</string>
+    <string name="support_older">Third-party provider support is limited on older Android versions. You can still test this browser; this is not a claim that passkeys are unavailable.</string>
+    <string name="settings_help">Set up and unlock your intended password manager, then review your credential providers in system settings. Returning here does not confirm a settings change.</string>
+    <string name="open_credential_settings">Open credential provider settings</string>
+    <string name="settings_fallback">The dedicated credential settings could not be opened on this device. System settings were opened instead; search for passwords, passkeys or autofill.</string>
+    <string name="open_settings">Open system settings</string>
+    <string name="continue_test">Continue to test</string>
+    <string name="test_title">Test a passkey</string>
+    <string name="test_explanation">Open our test website, create a test passkey, then verify it. Observe which credential provider the browser uses.</string>
+    <string name="real_credential">This creates a real test passkey in your password manager. It may sync to other devices. Delete the test entry manually afterward.</string>
+    <string name="open_test">Open test website</string>
+    <string name="test_external">Complete both steps in the browser. If you have returned, confirm your result below. The app does not receive the website result automatically.</string>
+    <string name="confirm_result">Confirm test result</string>
+    <string name="confirm_title">Confirm your result</string>
+    <string name="confirm_question">Did you create and verify the test passkey using your intended provider? Any previous unfinished attempt remains unconfirmed.</string>
+    <string name="answer_yes">Yes, both succeeded</string>
+    <string name="answer_no">No, I encountered a problem</string>
+    <string name="answer_unknown">Not finished / not sure</string>
+    <string name="success_title">You reported a successful test</string>
+    <string name="success_explanation">This is your confirmation of this browser test, not proof that every app, browser or credential provider works.</string>
+    <string name="cleanup">Refreshing or clearing the test page removes its local data, not the passkey. In your password manager, delete the WebAuthn test entry for acp-fixer.aitiotekt.com.</string>
+    <string name="finish">Finish</string>
+    <string name="retry">Test again</string>
+    <string name="support_project">Support the project on GitHub (optional)</string>
+    <string name="troubleshoot">Troubleshooting</string>
+    <string name="troubleshoot_help">A cancelled prompt, missing provider, locked password manager, browser limitations or network failure can interrupt the test. Check setup and complete both website steps. A failed test does not establish an OEM fault.</string>
+    <string name="desktop_help">If the intended provider remains unavailable, use ACP Fixer on a computer for further diagnosis. Prepare Android SDK Platform-Tools, enable USB debugging and explicitly authorize the device. Diagnose first; inspect risks and recovery before confirming any change. This mobile app never repairs settings.</string>
+    <string name="desktop_releases">Desktop downloads on GitHub</string>
+    <string name="privacy">No device IDs, app lists or vault data are read. The website verifies responses locally; GitHub Pages may log file requests and IP addresses. Your password manager may sync test credentials. Android results are user-reported.</string>
+    <string name="launch_failed">Could not open the external app. Install or enable a browser, or open system settings manually, then retry.</string>
+</resources>

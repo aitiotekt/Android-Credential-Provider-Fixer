@@ -114,10 +114,27 @@ jobs:
       - name: Build unsigned desktop application
         run: mise exec -- just build-tauri
 
+  android-check:
+    name: Android JVM tests, lint, and build
+    needs: preflight
+    runs-on: ubuntu-24.04
+    env:
+      MISE_ENV: ci,android
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          cache-mode: read-only
+          cache-key-suffix: tests
+      - name: Check Android without a device
+        run: mise exec -- just check-android
+
   tests-report:
     name: Tests report
     if: always()
-    needs: [preflight, quality, desktop-build]
+    needs: [preflight, quality, desktop-build, android-check]
     runs-on: ubuntu-24.04
     steps:
       - name: Write report
@@ -125,6 +142,7 @@ jobs:
           PREFLIGHT_RESULT: ${{ needs.preflight.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           DESKTOP_RESULT: ${{ needs.desktop-build.result }}
+          ANDROID_RESULT: ${{ needs.android-check.result }}
         run: |
           mkdir -p temp/release/tests
           jq -n \
@@ -133,7 +151,8 @@ jobs:
             --arg preflight "${PREFLIGHT_RESULT}" \
             --arg quality "${QUALITY_RESULT}" \
             --arg desktop "${DESKTOP_RESULT}" \
-            '{schemaVersion:1,sourceRef:$sourceRef,sourceSha:$sourceSha,jobs:{preflight:$preflight,quality:$quality,desktopBuild:$desktop}}' \
+            --arg android "${ANDROID_RESULT}" \
+            '{schemaVersion:1,sourceRef:$sourceRef,sourceSha:$sourceSha,jobs:{preflight:$preflight,quality:$quality,desktopBuild:$desktop,android:$android}}' \
             > temp/release/tests/report.json
       - name: Upload report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -145,10 +164,12 @@ jobs:
           PREFLIGHT_RESULT: ${{ needs.preflight.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           DESKTOP_RESULT: ${{ needs.desktop-build.result }}
+          ANDROID_RESULT: ${{ needs.android-check.result }}
         run: |
           test "${PREFLIGHT_RESULT}" = success
           test "${QUALITY_RESULT}" = success
           test "${DESKTOP_RESULT}" = success
+          test "${ANDROID_RESULT}" = success
 
   dispatch-release:
     name: Dispatch release

@@ -1,0 +1,1 @@
+../../docs/zh/CHANGELOG-ANDROID.md

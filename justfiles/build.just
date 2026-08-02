@@ -17,3 +17,23 @@ build-tauri-release:
 
 build-docs:
     cd docsite && pnpm build
+
+build-web: build-docs
+    pnpm --filter @aitiotekt/webauthn-web build
+    node scripts/build-web.mts
+
+check-web:
+    pnpm --filter @aitiotekt/webauthn-web typecheck
+    pnpm --filter @aitiotekt/webauthn-web test
+    pnpm --filter @aitiotekt/webauthn-web test:browser
+
+check-android:
+    node scripts/dev-cli.mts version check --app android
+    {{if os() == "windows" { ".\\gradlew.bat" } else { "./gradlew" }}} :webauthn-diagnosis:testDebugUnitTest :webauthn-diagnosis:lintDebug :webauthn-diagnosis:assembleDebug
+
+build-android-release:
+    node scripts/dev-cli.mts version check --app android
+    {{if os() == "windows" { ".\\gradlew.bat" } else { "./gradlew" }}} :webauthn-diagnosis:bundleRelease
+
+dev-web:
+    pnpm --filter @aitiotekt/webauthn-web dev

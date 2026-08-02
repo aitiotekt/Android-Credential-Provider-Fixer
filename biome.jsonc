@@ -34,6 +34,10 @@
 	},
 	"overrides": [
 		{
+			"includes": ["scripts/android-release.mts"],
+			"linter": { "rules": { "suspicious": { "noUndeclaredEnvVars": "off" } } }
+		},
+		{
 			"includes": ["apps/tauri-app/src/styles.css"],
 			"linter": {
 				"rules": { "complexity": { "noImportantStyles": "off" } }

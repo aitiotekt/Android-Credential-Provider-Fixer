@@ -17,6 +17,11 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import {
+	checkAndroidVersion,
+	setAndroidVersion,
+	versionTarget,
+} from "./lib/release/android.mts";
+import {
 	createManifest,
 	currentRustTarget,
 	stageCli,
@@ -69,6 +74,7 @@ const conventionDocumentNames = [
 	"PRIVACY.md",
 	"CONTRIBUTING.md",
 	"CHANGELOG.md",
+	"CHANGELOG-ANDROID.md",
 ] as const;
 const linkEntries: LinkEntry[] = [
 	...conventionDocumentNames.map((name) => ({
@@ -81,6 +87,16 @@ const linkEntries: LinkEntry[] = [
 	{ link: "docsite/privacy.md", target: "PRIVACY.md", type: "file" },
 	{ link: "docsite/contributing.md", target: "CONTRIBUTING.md", type: "file" },
 	{ link: "docsite/changelog.md", target: "CHANGELOG.md", type: "file" },
+	{
+		link: "docsite/changelog-android.md",
+		target: "CHANGELOG-ANDROID.md",
+		type: "file",
+	},
+	{
+		link: "docsite/zh/changelog-android.md",
+		target: "docs/zh/CHANGELOG-ANDROID.md",
+		type: "file",
+	},
 	{ link: "docsite/license.md", target: "LICENSE", type: "file" },
 	{ link: "docsite/docs", target: "docs/en", type: "dir" },
 	{ link: "docsite/zh/index.md", target: "docs/zh/README.md", type: "file" },
@@ -197,7 +213,7 @@ function checkDocs(): void {
 		}
 	}
 	const rootLanguageVariants = readdirSync(repoRoot).filter((name) =>
-		/^(?:README|SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG)\.[^.]+\.md$/i.test(
+		/^(?:README|SECURITY|PRIVACY|CONTRIBUTING|CHANGELOG|CHANGELOG-ANDROID)\.[^.]+\.md$/i.test(
 			name,
 		),
 	);
@@ -1026,13 +1042,22 @@ async function main(): Promise<void> {
 		checkDocs();
 	} else if (scope === "version" && action === "check") {
 		const options = optionsFrom(extra);
-		checkVersion(
-			parseFormat(
-				typeof options.get("format") === "string"
-					? String(options.get("format"))
-					: undefined,
-			),
+		const format = parseFormat(
+			typeof options.get("format") === "string"
+				? String(options.get("format"))
+				: undefined,
 		);
+		if (versionTarget(options.get("app")) === "android") {
+			const result = checkAndroidVersion();
+			emitResult(
+				result,
+				format,
+				`Android metadata and changelogs agree on ${result.version}.`,
+			);
+			return;
+		}
+		checkAndroidVersion();
+		checkVersion(format);
 	} else if (scope === "version" && action === "set" && extra.length >= 1) {
 		const [version, ...optionArguments] = extra;
 		const options = optionsFrom(optionArguments);
@@ -1041,7 +1066,19 @@ async function main(): Promise<void> {
 				? String(options.get("format"))
 				: undefined,
 		);
-		const result = setVersion(version);
+		const target = versionTarget(options.get("app"));
+		if (target !== "android" && options.has("version-code")) {
+			throw new Error("--version-code requires --app android");
+		}
+		const result =
+			target === "android"
+				? setAndroidVersion(
+						version,
+						options.has("version-code")
+							? Number(options.get("version-code"))
+							: undefined,
+					)
+				: setVersion(version);
 		emitResult(
 			result,
 			format,

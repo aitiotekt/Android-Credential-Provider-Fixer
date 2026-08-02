@@ -28,13 +28,13 @@ import { entityOf } from "../domain/resource";
 import { progressItems, workflowStep } from "../domain/selectors";
 import { type TutorialService } from "../domain/tutorial-service";
 import { type WorkflowService } from "../domain/workflow";
-import { type Messages } from "../i18n/translations";
+import { type Locale, type Messages } from "../i18n/translations";
 import { createDemoDeviceGateway } from "../infrastructure/demo-gateway";
 import {
 	createTauriAppGateway,
 	createTauriDeviceGateway,
 } from "../infrastructure/tauri-gateway";
-import { type ErrorEnvelope, type ThemePreference } from "../lib/tauri";
+import { type ErrorEnvelope, ThemePreference } from "../lib/tauri";
 import {
 	Badge,
 	Button,
@@ -279,9 +279,18 @@ export function App(props: AppProps = {}) {
 							value={app.themePreference()}
 							disabled={app.preferenceSaving()}
 							options={[
-								{ value: "system", label: app.messages().themeSystem },
-								{ value: "light", label: app.messages().themeLight },
-								{ value: "dark", label: app.messages().themeDark },
+								{
+									value: ThemePreference.System,
+									label: app.messages().themeSystem,
+								},
+								{
+									value: ThemePreference.Light,
+									label: app.messages().themeLight,
+								},
+								{
+									value: ThemePreference.Dark,
+									label: app.messages().themeDark,
+								},
 							]}
 							onChange={(value) => void setTheme(value)}
 						/>
@@ -290,7 +299,7 @@ export function App(props: AppProps = {}) {
 							class="min-h-9 rounded-l1 border border-border-strong bg-surface px-3 text-sm"
 							value={app.locale()}
 							onInput={(event) =>
-								app.setLocale(event.currentTarget.value as "en" | "zh")
+								app.setLocale(event.currentTarget.value as Locale)
 							}
 						>
 							<option value="en">{app.messages().english}</option>

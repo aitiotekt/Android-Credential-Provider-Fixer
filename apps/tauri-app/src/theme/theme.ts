@@ -6,15 +6,23 @@ import {
 	onCleanup,
 	type Setter,
 } from "solid-js";
-import { type ThemePreference } from "../lib/tauri";
+import { ThemePreference } from "../lib/tauri";
 
-export type ResolvedTheme = "light" | "dark";
+export const ResolvedTheme = {
+	Light: ThemePreference.Light,
+	Dark: ThemePreference.Dark,
+} as const;
+export type ResolvedTheme = (typeof ResolvedTheme)[keyof typeof ResolvedTheme];
 
 export function resolveTheme(
 	preference: ThemePreference,
 	systemDark: boolean,
 ): ResolvedTheme {
-	return preference === "system" ? (systemDark ? "dark" : "light") : preference;
+	return preference === ThemePreference.System
+		? systemDark
+			? ResolvedTheme.Dark
+			: ResolvedTheme.Light
+		: preference;
 }
 
 export function applyTheme(theme: ResolvedTheme) {
@@ -33,8 +41,9 @@ export class ThemeController implements Disposable {
 	constructor() {
 		this.media = window.matchMedia("(prefers-color-scheme: dark)");
 		const [systemDark, setSystemDark] = createSignal(this.media.matches);
-		[this.preference, this.setPreferenceState] =
-			createSignal<ThemePreference>("system");
+		[this.preference, this.setPreferenceState] = createSignal<ThemePreference>(
+			ThemePreference.System,
+		);
 		this.resolved = createMemo(() =>
 			resolveTheme(this.preference(), systemDark()),
 		);

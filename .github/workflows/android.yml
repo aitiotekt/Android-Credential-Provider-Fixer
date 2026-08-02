@@ -1,0 +1,64 @@
+name: Android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-store-release
+  cancel-in-progress: false
+
+env:
+  MISE_ENV: ci,android
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release'
+    runs-on: ubuntu-24.04
+    environment: android-release
+    steps:
+      - name: Checkout exact dispatch source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          cache-key-suffix: android
+          cache-mode: read-write
+      - name: Validate Android project
+        run: mise exec -- just check-android
+      - name: Read publishing policy
+        id: plan
+        run: mise exec -- node scripts/android-release.mts plan
+      - name: Build signed AAB
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/webauthn-upload.jks
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
+          mise exec -- node --input-type=module -e '
+            import {writeFileSync} from "node:fs";
+            if (!process.env.ANDROID_KEYSTORE_BASE64) throw new Error("Missing Android upload key");
+            writeFileSync(process.env.ANDROID_KEYSTORE_PATH, Buffer.from(process.env.ANDROID_KEYSTORE_BASE64, "base64"), {mode: 0o600});
+          '
+          mise exec -- just build-android-release
+          mise exec -- node scripts/android-release.mts stage
+      - name: Preserve AAB before any Play request
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-${{ steps.plan.outputs.version }}-${{ steps.plan.outputs.versionCode }}-${{ github.run_attempt }}
+          path: temp/release/android/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload to Play internal testing
+        if: steps.plan.outputs.publish == 'internal'
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: mise exec -- node scripts/android-release.mts upload

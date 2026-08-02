@@ -21,12 +21,18 @@ The only writable values are `credential_service` and `credential_service_primar
 | `packages/storage` | Shared atomic local snapshot adapter for GUI and CLI |
 | `apps/tauri-app` | SolidJS 2 and Tauri 2 desktop application |
 | `apps/cli` | `acp-fixer` command-line application |
+| `apps/android-app` | Native WebAuthn Diagnosis companion, independent store release |
+| `apps/webauthn-web` | Static browser-local WebAuthn diagnostic at `/webauthn/` |
 | `docs` | English and Chinese project documentation |
 | `docsite` | Independent VitePress documentation workspace |
 
 ## Development
 
-Prerequisites are managed through [mise](https://mise.jdx.dev/): Node 26.1.0, pnpm 12.1.0, Rust 1.98.0, Just, and prek.
+Prerequisites are managed through [mise](https://mise.jdx.dev/): Node 26.1.0, pnpm 12.1.0, Rust 1.98.0, Java 26, Gradle 9.7.1, Just, and prek. Android tools are default local requirements; CI selects them per job.
+
+Open the repository root in Android Studio. The root Gradle Wrapper builds `:webauthn-diagnosis`, mapped to `apps/android-app/app`; set SDK 36 through `ANDROID_HOME` or root-local `local.properties`. Android versioning remains independent of the desktop release.
+
+The [WebAuthn companion guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md) describes the Android app, static test website, privacy, version commands, manual store setup and remaining real-provider acceptance. Use `just dev-web`, `just check-web`, `just check-android`, and `just build-web` for the new targets. Web packages follow desktop versions; `just set-version VERSION --app android` maintains Android separately.
 
 ```sh
 mise trust

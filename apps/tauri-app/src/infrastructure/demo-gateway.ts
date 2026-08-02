@@ -4,6 +4,7 @@ import {
 	type AdbSelection,
 	type ChangeExecution,
 	type ChangeOutcome,
+	type ChangeOutcomeStatus,
 	type ChangePlan,
 	type ChangePreview,
 	type DemoFixture,
@@ -305,7 +306,9 @@ export function createDemoDeviceGateway(fixture: DemoFixture): DeviceGateway {
 
 	function executePlan(
 		planId: string,
-		status: "applied" | "restored",
+		status:
+			| typeof ChangeOutcomeStatus.Applied
+			| typeof ChangeOutcomeStatus.Restored,
 	): ChangeExecution {
 		if (!plan || plan.planId !== planId) {
 			return fail("CHANGE_PLAN_UNAVAILABLE", "demo plan is unavailable");

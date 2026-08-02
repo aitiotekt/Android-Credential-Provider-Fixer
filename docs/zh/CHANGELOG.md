@@ -5,6 +5,12 @@
 <!--
 ## Unreleased
 
+- 将 Android 独立变更日志调整为根英文真源与 docs 多语言结构，接入文档站受管链接和双语导航。
+- 将 Android 构建工具升级至 JDK 26、Gradle 9.7.1、AGP 9.4.0 与 Kotlin/Compose 2.4.20，迁移至内置 Kotlin；保留 JVM 目标 17 和 Android SDK 兼容范围。
+- 将 Android Gradle 入口及 Wrapper 移至仓库根目录，模块命名为 `:webauthn-diagnosis`，使 Android Studio 可打开完整 monorepo；保持应用身份与独立版本体系不变。
+- 新增 WebAuthn 诊断 Android 配套应用和仅内存保存状态的静态测试站，使用浏览器本地注册/签名验证，并以 Playwright 虚拟凭据覆盖测试。
+- 分离手动触发的 Android 签名 AAB／商店流水线和桌面发布；增加 Android 独立版本、变更日志及 `set-version --app`，Web package 版本继续跟随桌面。
+- 将 Docs 部署改为仅 main 发布的 Web 流水线，合并 VitePress 和 `/webauthn/`；本地默认配置 Java/Gradle，CI 按任务选择。真实提供方与 Play 验收仍需人工完成。
 - 修复预期跳过的任务导致发布被跳过；配置 tag 创建者身份、隔离重跑时的平台输入、使用真实 Release run 链接，并在公开前复核下载及上传资产，发布未完成时使流水线失败。
 - 使用显式 PowerShell 脚本参数修复 Windows CLI ZIP 打包，要求生成非空归档才算成功，并让 Windows 发布步骤在原生命令失败时立即停止。
 - 在验证和归档前对最终签名 DMG 完成公证与票据附加，并显式要求 DMG 和 CLI 的公证结果均为 Accepted。
