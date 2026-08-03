@@ -86,6 +86,18 @@ test("register, cryptographically verify, and clear without response uploads", a
 		}
 	});
 	await page.goto("./");
+	await page.evaluate(() => {
+		const original = navigator.credentials.create.bind(navigator.credentials);
+		navigator.credentials.create = async (options) => {
+			const request = options as CredentialCreationOptions;
+			(
+				window as typeof window & { offeredAlgorithms?: number[] }
+			).offeredAlgorithms = request.publicKey?.pubKeyCredParams.map(
+				({ alg }) => alg,
+			);
+			return original(options);
+		};
+	});
 	await page.getByRole("combobox").selectOption("en");
 	await expect(
 		page.getByRole("button", { name: "Create test passkey" }),
@@ -95,6 +107,13 @@ test("register, cryptographically verify, and clear without response uploads", a
 	await expect(
 		page.getByRole("heading", { name: "Test passkey created" }),
 	).toBeVisible();
+	expect(
+		await page.evaluate(
+			() =>
+				(window as typeof window & { offeredAlgorithms?: number[] })
+					.offeredAlgorithms,
+		),
+	).toEqual([-8, -7, -257]);
 	expect(await context.credentials.get()).toHaveLength(1);
 	await page.getByRole("button", { name: "Verify test passkey" }).click();
 	await expect(

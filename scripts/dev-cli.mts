@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { runAndroidDev } from "./lib/android-dev.mts";
 import {
 	checkAndroidVersion,
 	setAndroidVersion,
@@ -838,7 +839,7 @@ function checkArchitecture(): void {
 
 function usage(): never {
 	console.error(
-		"Usage: node scripts/dev-cli.mts docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|ensure-tag|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
+		"Usage: node scripts/dev-cli.mts android dev [--help] | docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|ensure-tag|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
 	);
 	process.exit(2);
 }
@@ -1036,7 +1037,9 @@ async function runRelease(
 
 async function main(): Promise<void> {
 	const [scope, action, ...extra] = process.argv.slice(2);
-	if (scope === "docs" && action === "sync" && extra.length === 0) {
+	if (scope === "android" && action === "dev") {
+		await runAndroidDev(repoRoot, extra);
+	} else if (scope === "docs" && action === "sync" && extra.length === 0) {
 		syncDocs();
 	} else if (scope === "docs" && action === "check" && extra.length === 0) {
 		checkDocs();

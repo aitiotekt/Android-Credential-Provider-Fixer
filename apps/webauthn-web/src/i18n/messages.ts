@@ -38,7 +38,7 @@ export const en = {
 		verificationFailed:
 			"The response could not be verified. Start a new test; this does not identify a provider or device fault.",
 		unsupportedOrigin:
-			"Testing is disabled on this origin. Open the official test website.",
+			"Testing is disabled on this origin. Open the official test website, or http://localhost:1430/webauthn/ for local development. IP addresses such as 127.0.0.1 cannot be used for this test.",
 		unsupportedAttestation:
 			"The authenticator returned an attestation format this privacy-focused test does not accept.",
 	},
@@ -87,7 +87,8 @@ export const zh: Messages = {
 			"本次测试已过期。请自行清理密码管理器中的旧测试凭据，再开始新测试。",
 		verificationFailed:
 			"无法验证返回结果，请重新测试。这不能确定是提供方或设备故障。",
-		unsupportedOrigin: "当前站点不允许进行测试，请打开正式测试网站。",
+		unsupportedOrigin:
+			"当前地址不允许进行测试。请打开正式测试网站；本地开发请使用 http://localhost:1430/webauthn/，不能使用 127.0.0.1 等 IP 地址。",
 		unsupportedAttestation: "认证器返回了本测试出于隐私考虑不接受的证明格式。",
 	},
 };

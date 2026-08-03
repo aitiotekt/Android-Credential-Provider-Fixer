@@ -5,6 +5,8 @@
 <!--
 ## Unreleased
 
+- 开发 recipe 改用 Unix/PowerShell 原生参数转发，移除 Node 启动器，增加输入输出、退出码和 Unix 中断的隔离回归测试。
+- 新增 `just dev-android`：明确交互或非交互选择设备，构建、安装并启动 debug 应用，可选监听改动后串行重新部署；真正的 Live Edit 仍使用 Android Studio，不卸载、清空数据或更改设备设置。
 - Android 14+ 优先通过 AndroidX CredentialManager 打开凭据提供方专项设置；旧系统或启动失败时明确提示回退系统设置，不将返回视为提供方已启用。
 - 将英文变更日志移至仓库根目录，多语言版本放在 docs 下，并接入文档站双语入口。
 - 升级至 JDK 26、Gradle 9.7.1、AGP 9.4.0 与 Kotlin/Compose 2.4.20；采用内置 Kotlin，字节码目标及 Android SDK 兼容范围不变，Android Studio 需支持 AGP 9.4。

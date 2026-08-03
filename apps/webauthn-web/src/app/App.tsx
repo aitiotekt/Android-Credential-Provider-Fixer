@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
-import { DiagnosisService } from "../domain/diagnosis-service";
+import { DiagnosisService, TestStateKind } from "../domain/diagnosis-service";
 import { en, zh } from "../i18n/messages";
 
 export function App() {
@@ -19,23 +19,26 @@ export function App() {
 	);
 	const state = service.state;
 	const busy = () =>
-		state().kind === "creating" || state().kind === "verifying";
+		state().kind === TestStateKind.Creating ||
+		state().kind === TestStateKind.Verifying;
 	const canVerify = () => {
 		const value = state();
 		return (
-			value.kind === "registered" ||
-			(value.kind === "failed" && value.canVerify)
+			value.kind === TestStateKind.Registered ||
+			(value.kind === TestStateKind.Failed && value.canVerify)
 		);
 	};
 	const stage = () =>
-		state().kind === "success"
+		state().kind === TestStateKind.Success
 			? 2
-			: canVerify() || state().kind === "verifying"
+			: canVerify() || state().kind === TestStateKind.Verifying
 				? 1
 				: 0;
 	const error = () => {
 		const value = state();
-		return value.kind === "failed" ? text().errors[value.error] : undefined;
+		return value.kind === TestStateKind.Failed
+			? text().errors[value.error]
+			: undefined;
 	};
 
 	return (
@@ -73,7 +76,7 @@ export function App() {
 				<h2 class="text-xl font-semibold" aria-live="polite">
 					{busy()
 						? text().working
-						: state().kind === "success"
+						: state().kind === TestStateKind.Success
 							? text().success
 							: canVerify()
 								? text().registered
@@ -95,10 +98,10 @@ export function App() {
 				<Show when={canVerify()}>
 					<p>{text().registeredHelp}</p>
 				</Show>
-				<Show when={state().kind === "success"}>
+				<Show when={state().kind === TestStateKind.Success}>
 					<p role="status">{text().successHelp}</p>
 				</Show>
-				<Show when={!canVerify() && state().kind !== "success"}>
+				<Show when={!canVerify() && state().kind !== TestStateKind.Success}>
 					<label class="flex items-start gap-3 rounded-lg bg-surface p-4 leading-relaxed">
 						<input
 							type="checkbox"
@@ -117,7 +120,7 @@ export function App() {
 						{text().create}
 					</button>
 				</Show>
-				<Show when={canVerify() || state().kind === "verifying"}>
+				<Show when={canVerify() || state().kind === TestStateKind.Verifying}>
 					<button
 						type="button"
 						disabled={busy()}

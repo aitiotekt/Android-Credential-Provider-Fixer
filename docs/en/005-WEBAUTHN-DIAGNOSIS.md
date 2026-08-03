@@ -28,6 +28,25 @@ The Web workflow combines VitePress and the test SPA in one Pages artifact. Only
 
 Maintainers must configure Play App Signing, upload-key secrets and protected `android-release` Environment; API publishing additionally needs a narrowly authorized Play service account. The first Console initialization/upload, listing, privacy/Data safety declarations and account-specific testing requirements remain manual. Store-only distribution does not prohibit developers compiling a local debug APK, but sideload distribution is not supported.
 
+## Android device development {#android-device-development}
+
+Start an emulator in Android Studio's Device Manager first (Android 14+ is recommended for credential provider guidance), or explicitly connect an authorized development device. Run commands through the pinned mise environment:
+
+```sh
+mise exec -- just dev-android
+mise exec -- just dev-android --device emulator-5554 --no-interactive
+mise exec -- just dev-android --device emulator-5554 --watch
+mise exec -- just dev-android --adb "/path with spaces/platform-tools/adb" --interactive
+```
+
+The first command lists running devices, with emulators first, and prompts for a number. Even a single device requires selection. Noninteractive input requires an exact `--device` serial; unavailable, unauthorized or offline targets are rejected. `--interactive` and `--no-interactive` override the default (both stdin and stdout must be terminals). `--help` performs no discovery or device operations.
+
+`scripts/dev-cli.mts android dev` validates ADB from the explicit path, root `local.properties`, SDK environment variables, the usual SDK location or PATH. It uses the checked-in Gradle Wrapper JAR through Java on all platforms, avoiding Windows command-string execution, to build only `:webauthn-diagnosis:assembleDebug`. It then rechecks the selected transport and foreground user, replace-installs the debug APK and starts only this application's `MainActivity`. It does not start emulators, manage ADB servers, uninstall, clear application data or alter settings. A Play-signed installation may conflict with the debug signature; deployment fails rather than silently deleting it. Use a separate development emulator in that case.
+
+`--watch` debounces Android source/resource and Gradle configuration edits, serializes deployments, and schedules a follow-up rebuild if files change during a build. Build failures leave it watching for the next edit. It never switches to another device or user automatically; restart and select again after a transport/user change. Ctrl+C stops watching and cancels the active command. Updates replace-install and relaunch the app: process/UI state is **not** guaranteed to survive. For supported in-place Compose edits, use Android Studio [Live Edit / Apply Changes](https://developer.android.com/studio/run#apply-changes); this CLI does not emulate those IDE features. Native changes do not reload the separate WebAuthn website.
+
+This opt-in developer deployment does not change store-only distribution. Normal checks and CI use mocks and never install or launch an application on a device.
+
 ## Acceptance status
 
 Automated browser tests use Playwright Credentials to substitute a virtual authenticator in Chromium, Firefox and WebKit. They validate application behavior and signature rejection, not native OS, Google or Bitwarden integration. Real integration, accessibility/lifecycle checks on devices, Play uploading and policy approval require separate maintainer validation. Ordinary checks never start ADB or create real passkeys.

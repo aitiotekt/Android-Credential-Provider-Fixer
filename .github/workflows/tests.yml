@@ -108,6 +108,8 @@ jobs:
           cache-mode: read-write
       - name: Test portable Rust crates
         run: mise exec -- cargo test -p acp-fixer-core -p acp-fixer-cli
+      - name: Test development recipe forwarding without devices
+        run: mise exec -- node --test scripts/__tests__/just-dev.test.mts
       - name: Test Windows CLI packaging
         if: runner.os == 'Windows'
         run: mise exec -- node --test scripts/__tests__/windows-archive.test.mts

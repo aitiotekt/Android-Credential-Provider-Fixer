@@ -15,6 +15,15 @@ describe("diagnosis origin and messages", () => {
 			"unsupportedOrigin",
 		);
 	});
+	it("rejects IP origins before starting a browser ceremony", () => {
+		for (const origin of [
+			"http://127.0.0.1:1430",
+			"http://[::1]:1430",
+			"http://192.168.1.10:1430",
+		]) {
+			expect(() => relyingParty(origin)).toThrow("unsupportedOrigin");
+		}
+	});
 	it("keeps all translations symmetric", () => {
 		expect(Object.keys(zh)).toEqual(Object.keys(en));
 		expect(Object.keys(zh.errors)).toEqual(Object.keys(en.errors));

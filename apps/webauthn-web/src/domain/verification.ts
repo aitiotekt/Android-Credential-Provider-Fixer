@@ -13,14 +13,15 @@ import {
 
 export type RelyingParty = { origin: string; id: string };
 
+// These algorithms cover the standard passkey key types while avoiding PQC
+// algorithms that are not consistently supported by local WebCrypto runtimes.
+export const SUPPORTED_ALGORITHM_IDS = [-8, -7, -257] as const;
+
 export function relyingParty(origin: string): RelyingParty {
 	const url = new URL(origin);
 	if (
 		origin !== "https://acp-fixer.aitiotekt.com" &&
-		!(
-			url.protocol === "http:" &&
-			["localhost", "127.0.0.1"].includes(url.hostname)
-		)
+		!(url.protocol === "http:" && url.hostname === "localhost")
 	) {
 		throw new Error("unsupportedOrigin");
 	}
@@ -57,7 +58,7 @@ export async function verifyRegistration(
 		expectedOrigin: rp.origin,
 		expectedRPID: rp.id,
 		requireUserVerification: true,
-		supportedAlgorithmIDs: [-7, -257],
+		supportedAlgorithmIDs: [...SUPPORTED_ALGORITHM_IDS],
 	});
 	if (!result.verified) {
 		throw new Error("verificationFailed");

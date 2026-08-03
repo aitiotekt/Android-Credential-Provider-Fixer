@@ -13,32 +13,24 @@ lint:
 typecheck:
     pnpm typecheck
 
+check-web:
+    pnpm --filter @aitiotekt/webauthn-web typecheck
+    pnpm --filter @aitiotekt/webauthn-web test
+    pnpm --filter @aitiotekt/webauthn-web test:browser
+
+check-android:
+    node scripts/dev-cli.mts version check --app android
+    {{if os() == "windows" { ".\\gradlew.bat" } else { "./gradlew" }}} :webauthn-diagnosis:testDebugUnitTest :webauthn-diagnosis:lintDebug :webauthn-diagnosis:assembleDebug
+
 check-docs:
     node scripts/dev-cli.mts docs check
-
-sync-docs:
-    node scripts/dev-cli.mts docs sync
 
 check-icons:
     node scripts/dev-cli.mts icons check
 
-sync-icons:
-    node scripts/dev-cli.mts icons sync
-
 # Check managed versions and matching English/Chinese changelog sections.
 check-version *args:
     node scripts/dev-cli.mts version check {{args}}
-
-# Set all managed versions; add the English/Chinese changelog sections afterward.
-set-version version *args:
-    node scripts/dev-cli.mts version set {{quote(version)}} {{args}}
-
-# Set macOS prerelease signing to signed or unsigned; stable releases require signed.
-set-macos-signing policy:
-    node scripts/dev-cli.mts release signing set macos {{quote(policy)}}
-
-set-android-publish policy:
-    node scripts/android-release.mts policy {{quote(policy)}}
 
 # Validate release metadata, artifact definitions, and workflow policy locally.
 release-check:

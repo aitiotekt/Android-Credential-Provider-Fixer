@@ -9,10 +9,11 @@ export default defineConfig({
 		baseURL: "http://localhost:1430/webauthn/",
 		trace: "retain-on-failure",
 	},
-	projects: ["chromium", "firefox", "webkit"].map((browserName) => ({
-		name: browserName,
-		use: { browserName: browserName as "chromium" | "firefox" | "webkit" },
-	})),
+	projects: [
+		{ name: "chromium", use: { browserName: "chromium" } },
+		{ name: "firefox", use: { browserName: "firefox" } },
+		{ name: "webkit", use: { browserName: "webkit" } },
+	],
 	webServer: {
 		command:
 			"pnpm build && pnpm exec vite preview --host localhost --port 1430 --strictPort",

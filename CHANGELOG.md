@@ -5,6 +5,12 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
+- Fix Android development script/test lint findings with explicit blocks and optional chaining; scope Turbo environment checks to exclude the directly invoked Android development script.
+- Use localhost for WebAuthn development and reject IP origins with an actionable message before credential creation, fixing Firefox's invalid-domain failure at 127.0.0.1.
+- Log original WebAuthn exceptions and the current test state to the browser console before mapping them to user-facing errors.
+- Make Playwright browser projects explicit and add `just test-web-firefox` for isolated Firefox WebAuthn workflow verification with virtual credentials.
+- Run Android development through platform-specific Unix/PowerShell recipes instead of an intermediate Node launcher, preserving argument boundaries, terminal I/O and native exit codes with isolated cross-platform CI tests.
+- Organize Just recipes by responsibility: keep WebAuthn development in dev.just, platform checks in quality.just, and synchronization/version-policy commands in maintenance.just without changing command behavior.
 - Publish the independent Android changelog from a root English source and mirrored language documents, with managed docsite links and bilingual navigation.
 - Upgrade Android build tooling to JDK 26, Gradle 9.7.1, AGP 9.4.0 and Kotlin/Compose 2.4.20 with built-in Kotlin; keep JVM target 17 and Android SDK compatibility unchanged.
 - Move the Android Gradle entry point and Wrapper to the repository root, with the `:webauthn-diagnosis` module, so Android Studio opens the full monorepo. Preserve application identity and independent versioning.

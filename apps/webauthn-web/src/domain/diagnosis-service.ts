@@ -7,22 +7,46 @@ import { type WebAuthnCredential } from "@simplewebauthn/server";
 import { createSignal } from "solid-js";
 import {
 	relyingParty,
+	SUPPORTED_ALGORITHM_IDS,
 	verifyAuthentication,
 	verifyRegistration,
 } from "./verification";
 
-export type TestError =
-	| "cancelled"
-	| "unsupported"
-	| "expired"
-	| "verificationFailed"
-	| "unsupportedOrigin"
-	| "unsupportedAttestation";
+export const TestError = {
+	Cancelled: "cancelled",
+	Unsupported: "unsupported",
+	Expired: "expired",
+	VerificationFailed: "verificationFailed",
+	UnsupportedOrigin: "unsupportedOrigin",
+	UnsupportedAttestation: "unsupportedAttestation",
+} as const;
+export type TestError = (typeof TestError)[keyof typeof TestError];
+
+export const TestStateKind = {
+	Ready: "ready",
+	Creating: "creating",
+	Verifying: "verifying",
+	Registered: "registered",
+	Success: "success",
+	Failed: "failed",
+} as const;
+export type TestStateKind = (typeof TestStateKind)[keyof typeof TestStateKind];
+
 export type TestState =
-	| { kind: "ready" }
-	| { kind: "creating" | "verifying"; name: string }
-	| { kind: "registered" | "success"; name: string }
-	| { kind: "failed"; error: TestError; canVerify: boolean };
+	| { kind: typeof TestStateKind.Ready }
+	| {
+			kind: typeof TestStateKind.Creating | typeof TestStateKind.Verifying;
+			name: string;
+	  }
+	| {
+			kind: typeof TestStateKind.Registered | typeof TestStateKind.Success;
+			name: string;
+	  }
+	| {
+			kind: typeof TestStateKind.Failed;
+			error: TestError;
+			canVerify: boolean;
+	  };
 
 function randomId(): string {
 	const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -33,7 +57,9 @@ function randomId(): string {
 }
 
 export class DiagnosisService {
-	private readonly resource = createSignal<TestState>({ kind: "ready" });
+	private readonly resource = createSignal<TestState>({
+		kind: TestStateKind.Ready,
+	});
 	public readonly state = this.resource[0];
 	private generation = 0;
 	private credential?: WebAuthnCredential;
@@ -55,7 +81,7 @@ export class DiagnosisService {
 		this.userId = undefined;
 		this.expiresAt = 0;
 		this.name = "";
-		this.resource[1]({ kind: "ready" });
+		this.resource[1]({ kind: TestStateKind.Ready });
 	}
 
 	public async register(): Promise<void> {
@@ -68,7 +94,7 @@ export class DiagnosisService {
 			const challenge = randomId();
 			this.userId = randomId();
 			this.name = `WebAuthn test ${crypto.randomUUID().slice(0, 8)}`;
-			this.resource[1]({ kind: "creating", name: this.name });
+			this.resource[1]({ kind: TestStateKind.Creating, name: this.name });
 			// Invoke within the click task; awaiting option generation first can lose
 			// Safari's user activation. No platform/vendor is selected by the app.
 			const response = await startRegistration({
@@ -79,8 +105,10 @@ export class DiagnosisService {
 					timeout: 300_000,
 					attestation: "none",
 					pubKeyCredParams: [
-						{ type: "public-key", alg: -7 },
-						{ type: "public-key", alg: -257 },
+						...SUPPORTED_ALGORITHM_IDS.map((alg) => ({
+							type: "public-key" as const,
+							alg,
+						})),
 					],
 					authenticatorSelection: {
 						residentKey: "required",
@@ -96,39 +124,43 @@ export class DiagnosisService {
 				return;
 			}
 			if (this.now() >= deadline) {
-				throw new Error("expired");
+				throw new Error(TestError.Expired);
 			}
 			this.credential = credential;
 			this.expiresAt = this.now() + 3_600_000;
 			this.expiryTimer = setTimeout(() => {
 				this.clear();
 				this.resource[1]({
-					kind: "failed",
-					error: "expired",
+					kind: TestStateKind.Failed,
+					error: TestError.Expired,
 					canVerify: false,
 				});
 			}, 3_600_000);
-			this.resource[1]({ kind: "registered", name: this.name });
+			this.resource[1]({ kind: TestStateKind.Registered, name: this.name });
 		} catch (error) {
 			this.fail(error, token);
 		}
 	}
 
 	public async authenticate(): Promise<void> {
-		if (!this.credential || !this.userId || this.state().kind === "verifying") {
+		if (
+			!this.credential ||
+			!this.userId ||
+			this.state().kind === TestStateKind.Verifying
+		) {
 			return;
 		}
 		const token = ++this.generation;
 		const deadline = Math.min(this.now() + 300_000, this.expiresAt);
 		try {
 			if (this.now() >= deadline) {
-				throw new Error("expired");
+				throw new Error(TestError.Expired);
 			}
 			const challenge = randomId();
 			const rp = relyingParty(this.origin);
 			const credential = this.credential;
 			const userId = this.userId;
-			this.resource[1]({ kind: "verifying", name: this.name });
+			this.resource[1]({ kind: TestStateKind.Verifying, name: this.name });
 			const response = await startAuthentication({
 				optionsJSON: {
 					rpId: rp.id,
@@ -146,13 +178,13 @@ export class DiagnosisService {
 				return;
 			}
 			if (this.now() >= deadline) {
-				throw new Error("expired");
+				throw new Error(TestError.Expired);
 			}
 			// A successful assertion ends the attempt. A second success requires a
 			// new registration; captured responses cannot be resubmitted by the UI.
 			this.credential = undefined;
 			this.userId = undefined;
-			this.resource[1]({ kind: "success", name: this.name });
+			this.resource[1]({ kind: TestStateKind.Success, name: this.name });
 		} catch (error) {
 			this.fail(error, token);
 		}
@@ -169,7 +201,7 @@ export class DiagnosisService {
 			!navigator.credentials ||
 			window.top !== window.self
 		) {
-			throw new Error("unsupported");
+			throw new Error(TestError.Unsupported);
 		}
 	}
 
@@ -177,27 +209,28 @@ export class DiagnosisService {
 		if (token !== this.generation) {
 			return;
 		}
+		console.error(`[WebAuthn] ${this.state().kind} failed`, error);
 		const name = error instanceof Error ? error.name : "";
 		const message = error instanceof Error ? error.message : "";
 		const known = [
-			"expired",
-			"unsupported",
-			"unsupportedOrigin",
-			"unsupportedAttestation",
+			TestError.Expired,
+			TestError.Unsupported,
+			TestError.UnsupportedOrigin,
+			TestError.UnsupportedAttestation,
 		] as const;
 		let code: TestError =
-			known.find((value) => value === message) ?? "verificationFailed";
+			known.find((value) => value === message) ?? TestError.VerificationFailed;
 		if (name === "NotAllowedError" || name === "AbortError") {
-			code = "cancelled";
+			code = TestError.Cancelled;
 		}
 		if (name === "NotSupportedError") {
-			code = "unsupported";
+			code = TestError.Unsupported;
 		}
-		if (code === "expired") {
+		if (code === TestError.Expired) {
 			this.clear();
 		}
 		this.resource[1]({
-			kind: "failed",
+			kind: TestStateKind.Failed,
 			error: code,
 			canVerify: !!this.credential,
 		});

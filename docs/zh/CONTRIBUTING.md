@@ -10,7 +10,7 @@ just setup
 just verify
 ```
 
-使用 `just dev` 运行桌面应用，使用 `just dev-cli --help` 运行 CLI，使用 `just dev-docs` 运行文档站。代码和代码注释使用英文；面向用户的文档在 `docs/en` 与 `docs/zh` 中成对维护。根 `CHANGELOG.md` 是英文真源，`docs/zh/CHANGELOG.md` 是中文真源。
+使用 `just dev` 运行桌面应用，`just dev-cli --help` 运行 CLI，`just dev-docs` 运行文档站，`just dev-web` 运行 WebAuthn 网站。`just dev-android` 在明确选择设备后构建、安装并启动 Android 调试应用；非交互选择和监听模式见[开发指南](005-WEBAUTHN-DIAGNOSIS.md#android-device-development)。代码和代码注释使用英文；面向用户的文档在 `docs/en` 与 `docs/zh` 中成对维护。根 `CHANGELOG.md` 是英文真源，`docs/zh/CHANGELOG.md` 是中文真源。
 
 ## 工程规则
 

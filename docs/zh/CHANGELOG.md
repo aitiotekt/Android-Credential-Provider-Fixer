@@ -5,6 +5,12 @@
 <!--
 ## Unreleased
 
+- 修复 Android 开发脚本及测试的 lint 问题，补齐代码块并使用可选链；直接运行的 Android 开发脚本不再套用 Turbo 环境变量检查。
+- WebAuthn 开发入口改用 localhost，在创建凭据前拒绝 IP 地址并提示正确入口，修复 Firefox 在 127.0.0.1 下的无效域名错误。
+- 在转换为用户提示前，将 WebAuthn 原始异常与当前测试状态输出到浏览器控制台，便于排查失败原因。
+- 显式配置 Playwright 浏览器项目，新增 `just test-web-firefox`，以虚拟凭据单独验证 Firefox 中的 WebAuthn 流程。
+- Android 开发入口改用 Unix/PowerShell 分平台 recipe，移除中间 Node 启动器，保留参数边界、终端输入输出和原生退出码，并增加跨平台隔离 CI 测试。
+- 按职责整理 Just recipe：WebAuthn 开发命令归入 dev.just，平台检查归入 quality.just，同步及版本/发布策略维护归入 maintenance.just；命令名称和行为不变。
 - 将 Android 独立变更日志调整为根英文真源与 docs 多语言结构，接入文档站受管链接和双语导航。
 - 将 Android 构建工具升级至 JDK 26、Gradle 9.7.1、AGP 9.4.0 与 Kotlin/Compose 2.4.20，迁移至内置 Kotlin；保留 JVM 目标 17 和 Android SDK 兼容范围。
 - 将 Android Gradle 入口及 Wrapper 移至仓库根目录，模块命名为 `:webauthn-diagnosis`，使 Android Studio 可打开完整 monorepo；保持应用身份与独立版本体系不变。

@@ -28,6 +28,25 @@ Web 流水线合并 VitePress 与 SPA 为一个 Pages 产物，仅 main 部署�
 
 维护者需要配置 Play App Signing、上传密钥与受保护的 `android-release` Environment；API 上传另需最小授权的 Play 服务账号。首次 Console 初始化与上传、商店材料、隐私/Data safety 和账号相关测试条件仍需人工处理。仅商店分发不禁止开发者编译本地 debug APK，但不提供侧载分发渠道。
 
+## Android 设备开发 {#android-device-development}
+
+先在 Android Studio 的 Device Manager 中启动模拟器（凭据提供方指引建议使用 Android 14+），或明确连接已授权的开发设备。通过固定的 mise 工具链运行：
+
+```sh
+mise exec -- just dev-android
+mise exec -- just dev-android --device emulator-5554 --no-interactive
+mise exec -- just dev-android --device emulator-5554 --watch
+mise exec -- just dev-android --adb "/path with spaces/platform-tools/adb" --interactive
+```
+
+第一条命令列出已运行的设备，模拟器优先，通过编号选择；即使只有一台也不自动选择。非交互模式必须提供精确的 `--device` 序列号，离线、未授权等不可用目标会被拒绝。默认仅在 stdin 和 stdout 都为终端时交互，`--interactive` 与 `--no-interactive` 可显式覆盖。`--help` 不发现 ADB、不操作设备。
+
+`scripts/dev-cli.mts android dev` 从显式路径、根 `local.properties`、SDK 环境变量、常见 SDK 位置或 PATH 查找并验证 ADB。所有平台均通过 Java 执行仓库内 Gradle Wrapper JAR，避免 Windows 命令字符串执行，仅构建 `:webauthn-diagnosis:assembleDebug`。安装前重新检查所选设备连接标识和前台 Android 用户，再覆盖安装 debug APK，仅启动本应用的 `MainActivity`。不会启动模拟器、管理 ADB server、卸载、清空应用数据或修改设置。商店签名版本可能与 debug 签名冲突：命令会失败，不会自动删除已有应用；建议使用独立开发模拟器。
+
+`--watch` 对 Android 源码、资源及 Gradle 配置变动防抖，串行执行部署；构建期间的改动会触发后续构建。构建失败后继续等待下一次修改。不会自动切换设备或 Android 用户，连接标识或用户变化后应停止命令并重新选择。Ctrl+C 停止监听并取消当前命令。更新方式为覆盖安装后重新启动，**不保证保留进程或界面状态**。需要支持范围内的 Compose 原位更新时，请使用 Android Studio [Live Edit / Apply Changes](https://developer.android.com/studio/run#apply-changes)，本 CLI 不模拟 IDE 的这些能力。原生改动不会刷新独立的 WebAuthn 网站。
+
+这一主动触发的开发部署不改变仅商店分发策略；常规检查与 CI 使用模拟执行器，不向设备安装或启动应用。
+
 ## 验收状态
 
 自动化通过 Playwright Credentials 在 Chromium、Firefox 和 WebKit 中替换虚拟认证器，验证应用流程及签名拒绝逻辑，不代表真实系统、Google 或 Bitwarden 集成已通过。真实集成、设备上的无障碍和生命周期、Play 上传及审核均需维护者另行验证。普通检查不启动 ADB，也不创建真实通行密钥。

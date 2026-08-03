@@ -10,7 +10,7 @@ just setup
 just verify
 ```
 
-Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, and `just dev-docs` for documentation. Code and code comments are written in English. User-facing documentation is maintained in matching `docs/en` and `docs/zh` files. Root `CHANGELOG.md` is the English source and `docs/zh/CHANGELOG.md` is the Chinese source.
+Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev-docs` for documentation, and `just dev-web` for the WebAuthn website. `just dev-android` builds, installs and launches the debug Android app after explicit device selection; see the [development guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md#android-device-development) for noninteractive selection and watch mode. Code and code comments are written in English. User-facing documentation is maintained in matching `docs/en` and `docs/zh` files. Root `CHANGELOG.md` is the English source and `docs/zh/CHANGELOG.md` is the Chinese source.
 
 ## Engineering rules
 

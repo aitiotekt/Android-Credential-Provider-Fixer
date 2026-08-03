@@ -34,7 +34,11 @@
 	},
 	"overrides": [
 		{
-			"includes": ["scripts/android-release.mts"],
+			// These Android entry points run directly, outside Turbo tasks and caching.
+			"includes": [
+				"scripts/android-release.mts",
+				"scripts/lib/android-dev.mts"
+			],
 			"linter": { "rules": { "suspicious": { "noUndeclaredEnvVars": "off" } } }
 		},
 		{
