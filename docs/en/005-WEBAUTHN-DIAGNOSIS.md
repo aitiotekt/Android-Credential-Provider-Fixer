@@ -49,4 +49,4 @@ This opt-in developer deployment does not change store-only distribution. Normal
 
 ## Acceptance status
 
-Automated browser tests use Playwright Credentials to substitute a virtual authenticator in Chromium, Firefox and WebKit. They validate application behavior and signature rejection, not native OS, Google or Bitwarden integration. Real integration, accessibility/lifecycle checks on devices, Play uploading and policy approval require separate maintainer validation. Ordinary checks never start ADB or create real passkeys.
+Automated browser tests use Playwright Credentials to substitute a virtual authenticator in Chromium and Firefox. WebKit coverage is temporarily disabled until Playwright's Linux WebKit virtual authenticator passes SimpleWebAuthn's `PublicKeyCredential` constructor check without a project-specific shim. These tests validate application behavior and signature rejection, not native OS, Google or Bitwarden integration. Real integration, accessibility/lifecycle checks on devices, Play uploading and policy approval require separate maintainer validation. Ordinary checks never start ADB or create real passkeys.

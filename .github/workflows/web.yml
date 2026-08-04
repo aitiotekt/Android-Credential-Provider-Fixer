@@ -75,7 +75,7 @@ jobs:
       - name: Check managed documentation
         run: mise exec -- just check-docs
       - name: Install virtual test browsers
-        run: mise exec -- pnpm --filter @aitiotekt/webauthn-web exec playwright install --with-deps chromium firefox webkit
+        run: mise exec -- pnpm --filter @aitiotekt/webauthn-web exec playwright install --with-deps chromium firefox
       - name: Verify WebAuthn site
         run: |
           mise exec -- pnpm --filter @aitiotekt/webauthn-web typecheck

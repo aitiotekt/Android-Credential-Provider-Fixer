@@ -5,6 +5,7 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
+- Temporarily limit WebAuthn browser checks to Chromium and Firefox until Playwright fixes Linux WebKit virtual-authenticator compatibility with SimpleWebAuthn; document the condition for restoring WebKit coverage without a project-specific shim.
 - Fix Android development script/test lint findings with explicit blocks and optional chaining; scope Turbo environment checks to exclude the directly invoked Android development script.
 - Use localhost for WebAuthn development and reject IP origins with an actionable message before credential creation, fixing Firefox's invalid-domain failure at 127.0.0.1.
 - Log original WebAuthn exceptions and the current test state to the browser console before mapping them to user-facing errors.

@@ -8,13 +8,13 @@ The RP ID is `acp-fixer.aitiotekt.com`; paths do not isolate relying parties or 
 
 ```sh
 mise exec -- just dev-web
-mise exec -- pnpm --filter @aitiotekt/webauthn-web exec playwright install chromium firefox webkit
+mise exec -- pnpm --filter @aitiotekt/webauthn-web exec playwright install chromium firefox
 mise exec -- just check-web
 mise exec -- just test-web-firefox
 mise exec -- just build-web
 ```
 
-Playwright Credentials replaces create/get with a virtual authenticator in Chromium, Firefox and WebKit. These tests validate the workflow and verification, not native OS/provider support. Real Google and Bitwarden checks require informed human interaction. The test fixture and keys are never included in the production graph.
+Playwright Credentials replaces create/get with a virtual authenticator in Chromium and Firefox. WebKit coverage is temporarily disabled until Playwright's Linux WebKit virtual authenticator passes SimpleWebAuthn's `PublicKeyCredential` constructor check without a project-specific shim. These tests validate the workflow and verification, not native OS/provider support. Real Google and Bitwarden checks require informed human interaction. The test fixture and keys are never included in the production graph.
 
 `test-web-firefox` runs only the Firefox project against a production preview. Stop `dev-web` first to free port 1430. The same Firefox project also runs in `check-web` and Web CI.
 

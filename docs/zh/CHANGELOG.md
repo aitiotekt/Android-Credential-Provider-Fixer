@@ -5,6 +5,7 @@
 <!--
 ## Unreleased
 
+- WebAuthn 浏览器检查暂时仅运行 Chromium 和 Firefox，待 Playwright 修复 Linux WebKit 虚拟认证器与 SimpleWebAuthn 的兼容性后恢复 WebKit 覆盖，并明确无需项目专用兼容补丁的恢复条件。
 - 修复 Android 开发脚本及测试的 lint 问题，补齐代码块并使用可选链；直接运行的 Android 开发脚本不再套用 Turbo 环境变量检查。
 - WebAuthn 开发入口改用 localhost，在创建凭据前拒绝 IP 地址并提示正确入口，修复 Firefox 在 127.0.0.1 下的无效域名错误。
 - 在转换为用户提示前，将 WebAuthn 原始异常与当前测试状态输出到浏览器控制台，便于排查失败原因。

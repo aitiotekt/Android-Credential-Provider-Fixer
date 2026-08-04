@@ -49,4 +49,4 @@ mise exec -- just dev-android --adb "/path with spaces/platform-tools/adb" --int
 
 ## 验收状态
 
-自动化通过 Playwright Credentials 在 Chromium、Firefox 和 WebKit 中替换虚拟认证器，验证应用流程及签名拒绝逻辑，不代表真实系统、Google 或 Bitwarden 集成已通过。真实集成、设备上的无障碍和生命周期、Play 上传及审核均需维护者另行验证。普通检查不启动 ADB，也不创建真实通行密钥。
+自动化通过 Playwright Credentials 在 Chromium 和 Firefox 中替换虚拟认证器。WebKit 覆盖暂时停用，待 Playwright 的 Linux WebKit 虚拟认证器无需项目专用兼容补丁即可通过 SimpleWebAuthn 的 `PublicKeyCredential` 构造函数检查后恢复。这些测试验证应用流程及签名拒绝逻辑，不代表真实系统、Google 或 Bitwarden 集成已通过。真实集成、设备上的无障碍和生命周期、Play 上传及审核均需维护者另行验证。普通检查不启动 ADB，也不创建真实通行密钥。
