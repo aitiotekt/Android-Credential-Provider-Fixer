@@ -15,13 +15,8 @@ dev-web:
 dev-android *args:
     exec node scripts/dev-cli.mts android dev "$@"
 
-# Script arguments avoid PowerShell -Command reparsing and preserve native exit codes.
+# Just prepends the recipe name to shell arguments; forward only user arguments.
 [windows]
-[script("pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File")]
-[extension(".ps1")]
 [positional-arguments]
 dev-android *args:
-    $ErrorActionPreference = 'Stop'
-    $PSNativeCommandArgumentPassing = 'Standard'
-    & node scripts/dev-cli.mts android dev @args
-    exit $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'; $forwardedArgs = @($args | Select-Object -Skip 1); node scripts/dev-cli.mts android dev @forwardedArgs; exit $LASTEXITCODE

@@ -6,9 +6,13 @@ The native Android app **WebAuthn Diagnosis** (`com.aitiotekt.webauthndiagnosis`
 
 The [test website](/webauthn/) creates a clearly named real test passkey and then verifies an authentication signature locally. The user must explicitly agree before creation. The credential may sync through their password manager. The site does not identify the actual provider; observe the browser prompt.
 
+The website is a general-purpose tool. Opening it from the documentation or without a recognized scene defaults to **Explore**: enter a test username and use the registration and authentication buttons in one view. Authentication can be repeated with fresh challenges. Editing the username discards the previous local test; only the current username and credential are retained.
+
+The Android app opens `/webauthn/?scene=webauthn-diagnosis-android-app` in both Custom Tabs and its browser fallback. This defaults to **Guided**, with create → verify → complete views, and adds a reminder to return to Android after success. Generic visits never show this reminder. The toolbar switches modes while retaining the current test; switching and username edits are disabled during an operation. The scene is presentation context only, never an origin override or result callback.
+
 ## Privacy and limits
 
-The page holds only its current random test identity, public key and challenge in memory. It does not upload WebAuthn responses or use cookies, localStorage, sessionStorage, IndexedDB or analytics. A test lasts at most one hour; an operation expires after five minutes. Refreshing, closing or clearing the page discards the test. This does **not** delete the real passkey: remove the `WebAuthn test …` entry for `acp-fixer.aitiotekt.com` in the password manager.
+The page holds only its current username, random test identity, public key and challenge in memory. It does not upload WebAuthn responses or use cookies, localStorage, sessionStorage, IndexedDB or analytics. There is no session time limit; each browser operation still has a five-minute deadline. Refreshing, closing or clearing the page discards the test. This does **not** delete the real passkey: remove the entry with your chosen username or generated `WebAuthn test …` name for `acp-fixer.aitiotekt.com` in the password manager.
 
 Static requests are served by GitHub Pages, which may process IP addresses and access logs. Password-manager synchronization follows that provider's policy. `/webauthn/` shares the documentation origin; it is not a separate RP or storage security boundary.
 

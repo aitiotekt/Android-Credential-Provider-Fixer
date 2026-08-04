@@ -6,7 +6,7 @@
 	--color-ink: var(--ink);
 	--color-muted: var(--muted);
 	--color-line: var(--line);
-	--color-accent: #0f766e;
+	--color-accent: var(--accent);
 }
 @layer base {
 	:root {
@@ -17,6 +17,10 @@
 		--ink: #0f172a;
 		--muted: #475569;
 		--line: #cbd5e1;
+		--accent: #0f766e;
+		--focus: #0d9488;
+		--result-success-surface: #f0fdfa;
+		--result-success-ink: #115e59;
 	}
 	@media (prefers-color-scheme: dark) {
 		:root {
@@ -26,6 +30,10 @@
 			--ink: #f1f5f9;
 			--muted: #cbd5e1;
 			--line: #64748b;
+			--accent: #0f766e;
+			--focus: #2dd4bf;
+			--result-success-surface: #123431;
+			--result-success-ink: #99f6e4;
 		}
 	}
 	body {
@@ -35,32 +43,47 @@
 		font-size: 16px;
 	}
 	button,
-	select {
+	select,
+	input[type="text"] {
 		border-radius: 0.5rem;
 		padding: 0.625rem 1rem;
 		min-height: 44px;
 	}
 	button {
-		background: #0f766e;
+		background: var(--accent);
 		color: white;
-		margin-inline-end: 0.75rem;
 	}
 	button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 	button.secondary,
-	select {
+	select,
+	input[type="text"] {
 		background: var(--surface);
 		color: var(--ink);
 		border: 1px solid var(--line);
 	}
 	:focus-visible {
-		outline: 3px solid #14b8a6;
+		outline: 3px solid var(--focus);
 		outline-offset: 3px;
 	}
 	a {
 		text-decoration: underline;
 		text-underline-offset: 3px;
+	}
+}
+
+@layer components {
+	.test-result {
+		background: var(--surface);
+		border-color: var(--line);
+	}
+
+	.test-result[data-result="registered"],
+	.test-result[data-result="success"] {
+		background: var(--result-success-surface);
+		border-color: var(--accent);
+		color: var(--result-success-ink);
 	}
 }

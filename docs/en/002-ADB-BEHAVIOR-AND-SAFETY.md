@@ -4,7 +4,7 @@ ADB is supplied and installed by the user. The application searches the GUI proc
 
 Every device operation uses `adb -s SERIAL`. The serial comes from the current `adb devices -l` result, never free-form frontend input. No device is selected automatically; unauthorized, offline, no-permission, and missing-device states remain distinct. The backend re-enumerates before diagnosis. The active Android user comes from `am get-current-user` and must be a non-negative integer.
 
-Phase 1 reads only manufacturer, model, codename, Android release/API, the foreground user, registered Credential Provider services, and `credential_service`, `credential_service_primary`, and `autofill_service`. It does not read build fingerprints, logs, accounts, vaults, or passkey material. A setting is represented as missing, empty, present, or unavailable; unfamiliar OEM serialization remains raw and makes the report incomplete.
+Diagnosis reads only manufacturer, model, codename, Android release/API, the foreground user, registered Credential Provider services, and `credential_service`, `credential_service_primary`, and `autofill_service`. It does not read build fingerprints, logs, accounts, vaults, or passkey material. A setting is represented as missing, empty, present, or unavailable; unfamiliar OEM serialization remains raw and makes the report incomplete.
 
 Provider components are candidates only when returned by package service enumeration for `android.service.credentials.CredentialProviderService`. Registration does not prove passkey capability, compatibility, or an unlocked vault.
 

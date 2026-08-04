@@ -12,9 +12,14 @@ import androidx.credentials.CredentialManager
 import com.aitiotekt.webauthndiagnosis.BuildConfig
 
 class ExternalNavigation(private val activity: Activity) {
-    fun openTest(): Boolean = safely {
-        CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(activity, BuildConfig.TEST_URL.toUri())
-    } || openUrl(BuildConfig.TEST_URL)
+    fun openTest(): Boolean {
+        val uri = BuildConfig.TEST_URL.toUri().buildUpon()
+            .appendQueryParameter("scene", "webauthn-diagnosis-android-app")
+            .build()
+        return safely {
+            CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(activity, uri)
+        } || openUrl(uri.toString())
+    }
 
     fun openSettings(): SettingsLaunchResult = openSettingsDestination(
         sdkInt = Build.VERSION.SDK_INT,

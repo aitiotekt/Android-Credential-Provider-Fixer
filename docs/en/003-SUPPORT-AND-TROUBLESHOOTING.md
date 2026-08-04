@@ -25,4 +25,20 @@ Update the password manager, browser, and system components; enter provider sett
 
 When ADB is missing, the UI shows copyable installation instructions. It does not run Homebrew, Winget, Scoop, or Chocolatey. Unauthorized devices require unlocking the phone and accepting the USB debugging prompt; offline devices should be reconnected before restarting any ADB service. `acp-fixer devices` exposes the same states for CLI troubleshooting.
 
+## CLI usage
+
+Extract the CLI archive for your operating system and run `acp-fixer` (`acp-fixer.exe` on Windows) from a terminal. Replace `SERIAL`, `COMPONENT`, and `ID` with the target reported by the tool.
+
+```sh
+acp-fixer --help
+acp-fixer devices --no-interactive
+acp-fixer diagnose --device SERIAL --no-interactive
+acp-fixer pin --device SERIAL --provider COMPONENT --no-interactive
+acp-fixer snapshots --json
+acp-fixer restore --snapshot ID --device SERIAL --no-interactive
+acp-fixer demo --json
+```
+
+The `pin` and `restore` commands above only preview the change. Writing requires an explicit `--apply`; read the [change safety guide](002-ADB-BEHAVIOR-AND-SAFETY.md) before applying. `demo` uses bundled data and does not access a device. For source-based development, use `just dev-cli` as described in [Contributing](CONTRIBUTING.md).
+
 [English](003-SUPPORT-AND-TROUBLESHOOTING.md) | [中文](../zh/003-SUPPORT-AND-TROUBLESHOOTING.md)

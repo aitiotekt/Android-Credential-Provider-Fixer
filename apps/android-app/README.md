@@ -11,8 +11,8 @@ From the repository root:
 ```sh
 mise install
 mise exec -- just check-android
-mise exec -- just set-version 0.1.0-alpha.2 --app android
-mise exec -- just set-version 0.1.0-alpha.2 --app android --version-code 3
+mise exec -- just set-version VERSION --app android
+mise exec -- just set-version VERSION --app android --version-code CODE
 ```
 
 For direct Gradle tasks from the root, use `./gradlew :webauthn-diagnosis:assembleDebug` (Windows: `.\gradlew.bat :webauthn-diagnosis:assembleDebug`). Module outputs stay under `apps/android-app/app/build`; the release bundle is named `webauthn-diagnosis-release.aab` before staging.
@@ -33,3 +33,5 @@ On Android 14+, settings navigation first uses AndroidX CredentialManager's `cre
 Test Google and Bitwarden manually through the real browser only after explicit consent: setup → create → verify → return → confirm → manually remove the test passkey. CI virtual credentials cannot certify this integration. Also check cancellation, task switching, rotation, process restoration and older Android guidance.
 
 Android changelogs: [English](../../CHANGELOG-ANDROID.md), [中文](../../docs/zh/CHANGELOG-ANDROID.md).
+
+The fixed test URL is opened with `scene=webauthn-diagnosis-android-app` in both Custom Tabs and the external-browser fallback. This selects the website's guided mode and Android return guidance; no browser result is automatically reported to the app.

@@ -72,7 +72,7 @@ export async function verifyAuthentication(
 	challenge: string,
 	rp: RelyingParty,
 	userId: string,
-): Promise<void> {
+): Promise<number> {
 	requireSameOrigin(response.response.clientDataJSON);
 	if (
 		response.id !== credential.id ||
@@ -92,4 +92,5 @@ export async function verifyAuthentication(
 	if (!result.verified) {
 		throw new Error("verificationFailed");
 	}
+	return result.authenticationInfo.newCounter;
 }

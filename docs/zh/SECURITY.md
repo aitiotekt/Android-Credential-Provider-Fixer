@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-`0.1.0-alpha.6` 只允许文档列明的读取，以及对 `credential_service` 和 `credential_service_primary` 的有限写入。写入要求当前诊断实体、与该诊断绑定的五分钟一次性操作计划、schema v2 原子快照、精确状态复核、回读验证和自动恢复；`autofill_service` 始终只读。演示模式的前端会话只能从其子 Injector 解析 fixture gateway，无法回退到真实 Tauri 设备 gateway。
+设备工具只允许文档列明的读取，以及对 `credential_service` 和 `credential_service_primary` 的有限写入。写入要求当前诊断实体、与该诊断绑定的五分钟一次性操作计划、schema v2 原子快照、精确状态复核、回读验证和自动恢复；`autofill_service` 始终只读。演示模式的前端会话只能从其子 Injector 解析 fixture gateway，无法回退到真实 Tauri 设备 gateway。
 
 发布流水线绝不调用 ADB。所有发布渠道均提供 GitHub Artifact Attestation、manifest 和 SHA-256 校验。Windows 产物没有 Authenticode 签名，无需 CA 凭据；来源证明用于验证构建来源，不能提供 Windows 发布者身份或 SmartScreen 信誉。稳定版 macOS 必须通过平台签名与 notarization，凭据限定在 Environment 中，签名失败不能降级。manifest 的 `signed` 字段仅表示平台代码签名。应用没有 updater 或 minisign 签名密钥。
 

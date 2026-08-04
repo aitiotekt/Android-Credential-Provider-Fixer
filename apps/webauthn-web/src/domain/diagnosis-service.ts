@@ -15,15 +15,25 @@ import {
 export const TestError = {
 	Cancelled: "cancelled",
 	Unsupported: "unsupported",
-	Expired: "expired",
+	TimedOut: "timedOut",
+	InvalidUsername: "invalidUsername",
 	VerificationFailed: "verificationFailed",
 	UnsupportedOrigin: "unsupportedOrigin",
 	UnsupportedAttestation: "unsupportedAttestation",
 } as const;
 export type TestError = (typeof TestError)[keyof typeof TestError];
 
+export const TestMode = {
+	Explore: "explore",
+	Guided: "guided",
+} as const;
+export type TestMode = (typeof TestMode)[keyof typeof TestMode];
+
+export const ANDROID_SCENE = "webauthn-diagnosis-android-app";
+
 export const TestStateKind = {
 	Ready: "ready",
+	Cleared: "cleared",
 	Creating: "creating",
 	Verifying: "verifying",
 	Registered: "registered",
@@ -33,7 +43,7 @@ export const TestStateKind = {
 export type TestStateKind = (typeof TestStateKind)[keyof typeof TestStateKind];
 
 export type TestState =
-	| { kind: typeof TestStateKind.Ready }
+	| { kind: typeof TestStateKind.Ready | typeof TestStateKind.Cleared }
 	| {
 			kind: typeof TestStateKind.Creating | typeof TestStateKind.Verifying;
 			name: string;
@@ -61,39 +71,92 @@ export class DiagnosisService {
 		kind: TestStateKind.Ready,
 	});
 	public readonly state = this.resource[0];
+	private readonly modeSignal;
+	public readonly mode;
+	private readonly usernameSignal = createSignal("");
+	public readonly username = this.usernameSignal[0];
+	public readonly isAndroidScene: boolean;
 	private generation = 0;
 	private credential?: WebAuthnCredential;
 	private userId?: string;
-	private expiresAt = 0;
 	private name = "";
-	private expiryTimer?: ReturnType<typeof setTimeout>;
 
 	public constructor(
 		private readonly origin: string,
+		scene: string | null = null,
 		private readonly now: () => number = Date.now,
-	) {}
+	) {
+		this.isAndroidScene = scene === ANDROID_SCENE;
+		this.modeSignal = createSignal<TestMode>(
+			this.isAndroidScene ? TestMode.Guided : TestMode.Explore,
+		);
+		this.mode = this.modeSignal[0];
+	}
+
+	public isBusy(): boolean {
+		return (
+			this.state().kind === TestStateKind.Creating ||
+			this.state().kind === TestStateKind.Verifying
+		);
+	}
+
+	public canAuthenticate(): boolean {
+		return !this.isBusy() && !!this.credential;
+	}
+
+	public setMode(mode: TestMode): void {
+		if (!this.isBusy()) {
+			this.modeSignal[1](mode);
+		}
+	}
+
+	public setUsername(username: string): void {
+		if (this.isBusy() || username === this.username()) {
+			return;
+		}
+		// A credential is bound to its original user, never to an edited label.
+		this.reset();
+		this.usernameSignal[1](username);
+	}
 
 	public clear(): void {
+		this.reset();
+		this.resource[1]({ kind: TestStateKind.Cleared });
+	}
+
+	private reset(): void {
 		this.generation++;
 		WebAuthnAbortService.cancelCeremony();
-		clearTimeout(this.expiryTimer);
 		this.credential = undefined;
 		this.userId = undefined;
-		this.expiresAt = 0;
 		this.name = "";
+		this.usernameSignal[1]("");
 		this.resource[1]({ kind: TestStateKind.Ready });
 	}
 
 	public async register(): Promise<void> {
-		this.clear();
+		if (this.isBusy()) {
+			return;
+		}
+		const username = this.username().trim();
+		this.reset();
+		this.usernameSignal[1](username);
 		const token = this.generation;
 		const deadline = this.now() + 300_000;
 		try {
 			this.requireSupport();
+			if (
+				(this.mode() === TestMode.Explore && !username) ||
+				username.length > 64
+			) {
+				throw new Error(TestError.InvalidUsername);
+			}
 			const rp = relyingParty(this.origin);
 			const challenge = randomId();
 			this.userId = randomId();
-			this.name = `WebAuthn test ${crypto.randomUUID().slice(0, 8)}`;
+			this.name =
+				username || `WebAuthn test ${crypto.randomUUID().slice(0, 8)}`;
+			this.usernameSignal[1](this.name);
 			this.resource[1]({ kind: TestStateKind.Creating, name: this.name });
 			// Invoke within the click task; awaiting option generation first can lose
 			// Safari's user activation. No platform/vendor is selected by the app.
@@ -124,18 +187,9 @@ export class DiagnosisService {
 				return;
 			}
 			if (this.now() >= deadline) {
-				throw new Error(TestError.Expired);
+				throw new Error(TestError.TimedOut);
 			}
 			this.credential = credential;
-			this.expiresAt = this.now() + 3_600_000;
-			this.expiryTimer = setTimeout(() => {
-				this.clear();
-				this.resource[1]({
-					kind: TestStateKind.Failed,
-					error: TestError.Expired,
-					canVerify: false,
-				});
-			}, 3_600_000);
 			this.resource[1]({ kind: TestStateKind.Registered, name: this.name });
 		} catch (error) {
 			this.fail(error, token);
@@ -143,19 +197,12 @@ export class DiagnosisService {
 	}
 
 	public async authenticate(): Promise<void> {
-		if (
-			!this.credential ||
-			!this.userId ||
-			this.state().kind === TestStateKind.Verifying
-		) {
+		if (!this.credential || !this.userId || this.isBusy()) {
 			return;
 		}
 		const token = ++this.generation;
-		const deadline = Math.min(this.now() + 300_000, this.expiresAt);
+		const deadline = this.now() + 300_000;
 		try {
-			if (this.now() >= deadline) {
-				throw new Error(TestError.Expired);
-			}
 			const challenge = randomId();
 			const rp = relyingParty(this.origin);
 			const credential = this.credential;
@@ -173,17 +220,21 @@ export class DiagnosisService {
 			if (token !== this.generation) {
 				return;
 			}
-			await verifyAuthentication(response, credential, challenge, rp, userId);
+			const counter = await verifyAuthentication(
+				response,
+				credential,
+				challenge,
+				rp,
+				userId,
+			);
 			if (token !== this.generation) {
 				return;
 			}
 			if (this.now() >= deadline) {
-				throw new Error(TestError.Expired);
+				throw new Error(TestError.TimedOut);
 			}
-			// A successful assertion ends the attempt. A second success requires a
-			// new registration; captured responses cannot be resubmitted by the UI.
-			this.credential = undefined;
-			this.userId = undefined;
+			// Repeated exploration uses a fresh challenge and the last verified counter.
+			this.credential = { ...credential, counter };
 			this.resource[1]({ kind: TestStateKind.Success, name: this.name });
 		} catch (error) {
 			this.fail(error, token);
@@ -191,13 +242,13 @@ export class DiagnosisService {
 	}
 
 	public [Symbol.dispose](): void {
-		this.clear();
+		this.reset();
 	}
 
 	private requireSupport(): void {
 		if (
 			!globalThis.isSecureContext ||
-			!globalThis.PublicKeyCredential ||
+			typeof globalThis.PublicKeyCredential !== "function" ||
 			!navigator.credentials ||
 			window.top !== window.self
 		) {
@@ -213,7 +264,8 @@ export class DiagnosisService {
 		const name = error instanceof Error ? error.name : "";
 		const message = error instanceof Error ? error.message : "";
 		const known = [
-			TestError.Expired,
+			TestError.TimedOut,
+			TestError.InvalidUsername,
 			TestError.Unsupported,
 			TestError.UnsupportedOrigin,
 			TestError.UnsupportedAttestation,
@@ -225,9 +277,6 @@ export class DiagnosisService {
 		}
 		if (name === "NotSupportedError") {
 			code = TestError.Unsupported;
-		}
-		if (code === TestError.Expired) {
-			this.clear();
 		}
 		this.resource[1]({
 			kind: TestStateKind.Failed,

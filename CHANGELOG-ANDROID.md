@@ -5,6 +5,7 @@
 <!--
 ## Unreleased
 
+- Open the WebAuthn website with an explicit Android scene in both Custom Tabs and browser fallback, selecting guided mode and contextual return instructions.
 - Replace the development recipe's Node launcher with native Unix/PowerShell argument forwarding and add isolated I/O, exit-code and Unix interrupt regression coverage.
 - Add `just dev-android` with explicit interactive/noninteractive device selection, debug build/install/launch and optional serialized watch redeployment. Keep genuine Live Edit in Android Studio; do not uninstall, clear data or change device settings.
 - Open dedicated credential provider settings through AndroidX CredentialManager on Android 14+, falling back explicitly to system settings on older systems or launch failure. Never treat a return as proof of provider activation.

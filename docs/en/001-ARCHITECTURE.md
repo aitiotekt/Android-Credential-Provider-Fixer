@@ -8,11 +8,25 @@ SolidJS WebView -> narrow Tauri IPC -> Tauri app adapter -> core use cases
 CLI presentation -----------------> CLI app adapter ---> CommandRunner port
 ```
 
+## Repository layout
+
+| Path | Responsibility |
+| --- | --- |
+| `packages/core` | Platform-independent domain entities, DTOs, adapter traits, and application orchestration |
+| `packages/storage` | Atomic local snapshots shared by the desktop app and CLI |
+| `apps/tauri-app` | SolidJS WebView, Tauri IPC, and desktop process adapter |
+| `apps/cli` | CLI presentation and Tokio process adapter |
+| `apps/android-app` | Native Kotlin/Compose WebAuthn guidance with user-confirmed browser results |
+| `apps/webauthn-web` | Static browser-local passkey registration and authentication test tool |
+| `docs` | English and Chinese source documentation |
+| `docsite` | VitePress documentation workspace |
+| `scripts` and `justfiles` | Repository automation, checks, and release tooling |
+
 ## Core
 
 `packages/core` contains application DTOs, domain state, stable error codes, use-case orchestration, and adapter traits. It has no dependency on Tauri, Clap, or a concrete process implementation. `CommandRequest` holds a native executable path, an argument vector, a timeout, and an aggregate output limit. `CommandOutput` preserves stdout and stderr as bytes so non-UTF-8 device output is not silently corrupted.
 
-Phase 1 ADB use cases construct command requests only from a validated ADB path, serials from the current device snapshot, parsed non-negative user IDs, the fixed Credential Provider service action, and a three-key read allowlist. The generic runner is an internal Rust port and is never an IPC or CLI user-input surface.
+Read-only ADB use cases construct command requests only from a validated ADB path, serials from the current device snapshot, parsed non-negative user IDs, the fixed Credential Provider service action, and a three-key read allowlist. The generic runner is an internal Rust port and is never an IPC or CLI user-input surface.
 
 The application model distinguishes values from entities. ADB validation results, device properties, components, settings, findings, and errors are immutable values. Discoveries, ADB selections, device enumerations, diagnoses, previews, plans, and executions are session entities with non-interchangeable opaque IDs and explicit parent IDs. Snapshots are persistent entities with revisions. `DiagnosisReport.completeness` describes the quality of a report and is separate from the diagnosis entity's asynchronous lifecycle.
 
@@ -36,6 +50,6 @@ The child session scope is also the arena-like lifetime boundary for its graph. 
 
 ## Delivery architecture
 
-`acp-fixer-metadata.toml` is the source of truth for the version, release targets, and macOS signing policy. Typed modules under `scripts/lib/release` own version/ref policy, staging, manifests, and idempotency decisions; GitHub workflow YAML only coordinates those operations. Tests, Release, and Docs have separate workflows and least-privilege permissions. A release is bound to an exact successful Tests run and source SHA, platform jobs upload private inputs, and a single assembly job verifies the complete eight-artifact matrix before attestation and publication. Stable macOS output requires signing/notarization; Windows uses one build path without Authenticode or CA credentials. All channels, including alpha/beta, require GitHub Artifact Attestations and SHA-256. The manifest `signed` field means platform signing only; provenance is presented separately. Stable Windows builds still require approval, and failed macOS signing never falls back. Workflows and release tooling never discover or invoke ADB.
+`acp-fixer-metadata.toml` is the source of truth for the version, release targets, and macOS signing policy. Typed modules under `scripts/lib/release` own version/ref policy, staging, manifests, and idempotency decisions; GitHub workflow YAML only coordinates those operations. Tests, Release, Web, and Android Release have separate workflows and least-privilege permissions. A release is bound to an exact successful Tests run and source SHA, platform jobs upload private inputs, and a single assembly job verifies the complete eight-artifact matrix before attestation and publication. Stable macOS output requires signing/notarization; Windows uses one build path without Authenticode or CA credentials. All channels, including alpha/beta, require GitHub Artifact Attestations and SHA-256. The manifest `signed` field means platform signing only; provenance is presented separately. Stable Windows builds still require approval, and failed macOS signing never falls back. Workflows and release tooling never discover or invoke ADB.
 
 [English](001-ARCHITECTURE.md) | [中文](../zh/001-ARCHITECTURE.md)

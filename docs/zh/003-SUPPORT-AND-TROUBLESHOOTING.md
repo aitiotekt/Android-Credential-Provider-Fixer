@@ -25,4 +25,20 @@
 
 ADB 缺失时，UI 会展示可复制的安装说明，但不会运行 Homebrew、Winget、Scoop 或 Chocolatey。unauthorized 设备需要解锁并接受 USB 调试授权；offline 设备应优先重新连接，而不是直接重启全局 ADB 服务。CLI 可通过 `acp-fixer devices` 查看相同状态。
 
+## 命令行用法
+
+解压适合当前操作系统的 CLI 归档，在终端中运行 `acp-fixer`（Windows 为 `acp-fixer.exe`）。将 `SERIAL`、`COMPONENT` 和 `ID` 替换为工具报告的目标值。
+
+```sh
+acp-fixer --help
+acp-fixer devices --no-interactive
+acp-fixer diagnose --device SERIAL --no-interactive
+acp-fixer pin --device SERIAL --provider COMPONENT --no-interactive
+acp-fixer snapshots --json
+acp-fixer restore --snapshot ID --device SERIAL --no-interactive
+acp-fixer demo --json
+```
+
+上述 `pin` 和 `restore` 命令仅预览变更，写入必须显式添加 `--apply`；执行前请阅读[变更安全指南](002-ADB-BEHAVIOR-AND-SAFETY.md)。`demo` 使用内置数据，不访问设备。从源码开发时使用 `just dev-cli`，详见[贡献指南](CONTRIBUTING.md)。
+
 [English](../en/003-SUPPORT-AND-TROUBLESHOOTING.md) | [中文](003-SUPPORT-AND-TROUBLESHOOTING.md)

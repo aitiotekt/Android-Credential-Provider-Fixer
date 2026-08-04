@@ -4,13 +4,31 @@ Thank you for helping improve Android Credential Provider Fixer. Contributions s
 
 ## Setup
 
+Install [mise](https://mise.jdx.dev/) and use the tool versions declared in [mise.toml](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/mise.toml) and [rust-toolchain.toml](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/rust-toolchain.toml). These files are authoritative; do not maintain a second version list in the README. Native build prerequisites still depend on the target platform.
+
+For Android, open the repository root in Android Studio and use the root Gradle Wrapper. Configure the SDK through `ANDROID_HOME` or root-local `local.properties`. Module tasks, WebAuthn development, and device-selection requirements are documented in the [companion development guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md#development-and-release).
+
 ```sh
 mise trust
 just setup
 just verify
 ```
 
-Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev-docs` for documentation, and `just dev-web` for the WebAuthn website. `just dev-android` builds, installs and launches the debug Android app after explicit device selection; see the [development guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md#android-device-development) for noninteractive selection and watch mode. Code and code comments are written in English. User-facing documentation is maintained in matching `docs/en` and `docs/zh` files. Root `CHANGELOG.md` is the English source and `docs/zh/CHANGELOG.md` is the Chinese source.
+Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev-docs` for documentation, and `just dev-web` for the WebAuthn website. `just dev-android` builds, installs and launches the debug Android app after explicit device selection; see the [development guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md#development-and-release) for noninteractive selection and watch mode. Code and code comments are written in English. User-facing documentation is maintained in matching `docs/en` and `docs/zh` files. Root `CHANGELOG.md` is the English source and `docs/zh/CHANGELOG.md` is the Chinese source.
+
+## Assets
+
+The icon masters are `assets/icons/app-icon.png` for generic assets and macOS Icon Composer artwork, and `assets/icons/app-icon-macos-legacy.png` for the transparent safe zone used by the legacy ICNS. Run `just sync-icons` after changing either master. The [architecture guide](docs/en/001-ARCHITECTURE.md) contains the repository layout and frontend implementation boundaries.
+
+## Documentation responsibilities
+
+- **README:** introduce the tools, their user-facing capabilities, getting started, and essential safety implications. Use brief section summaries with links for details; do not add version announcements, toolchain inventories, or implementation walkthroughs.
+- **Topic guides:** explain current behavior, usage, architecture, support, and distribution in the relevant document.
+- **Contributing:** explain environment setup, development commands, checks, engineering conventions, and release maintenance.
+- **Changelogs:** record changes under Unreleased or the release that introduced them. Keep historical version sections intact.
+- **Roadmap:** describe planned work and its completion status, without presenting planned behavior as available.
+
+Keep the English and Chinese structures aligned and link related topics instead of duplicating their full contents.
 
 ## Engineering rules
 
@@ -28,6 +46,8 @@ Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev
 - Update current-state docs with behavior changes; record historical changes in a changelog.
 
 Run `just sync-docs` after changing managed documentation aliases. The command refuses to overwrite ordinary files. Before submitting changes, run `just format`, `just verify`, and `just release-check`.
+
+## Release maintenance
 
 `acp-fixer-metadata.toml` is the release metadata source of truth. Discover maintenance commands with `just --list`. Run them through `mise exec -- just ...` when the mise toolchain is not already active.
 

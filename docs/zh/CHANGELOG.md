@@ -1,10 +1,14 @@
 # 变更日志
 
-项目的重要变化记录在这里。当前仍是预发布软件，不承诺 alpha 版本之间的诊断 JSON schema 保持稳定。
+项目的重要变化记录在这里。当前仍是预发布软件，不承诺预发布版本之间的诊断 JSON schema 保持稳定。
 
 <!--
 ## Unreleased
 
+- 按明确职责整理双语文档：README 保持面向用户；开发、CLI、下载校验、仓库结构、发布和维护细节归入对应指南；修正过时的版本、路线图和当前状态描述。
+- Windows Just recipe 要求 PowerShell 7.5+，统一使用 `-CommandWithArgs`，简化 Android 开发参数转发并保留原生退出码。
+- WebAuthn 结果先显著显示成功、失败、未完成、超时或已清除的概括，再给出说明；中英文结果提示统一放在表单上方。
+- 将 WebAuthn 网站改为通用测试工具：默认提供自定义用户名的探索模式，可切换三步引导模式；Android 显式传递场景参数，仅在该场景显示返回提示。移除一小时会话时限，反复认证仍使用新挑战并保留单次操作超时。
 - WebAuthn 浏览器检查暂时仅运行 Chromium 和 Firefox，待 Playwright 修复 Linux WebKit 虚拟认证器与 SimpleWebAuthn 的兼容性后恢复 WebKit 覆盖，并明确无需项目专用兼容补丁的恢复条件。
 - 修复 Android 开发脚本及测试的 lint 问题，补齐代码块并使用可选链；直接运行的 Android 开发脚本不再套用 Turbo 环境变量检查。
 - WebAuthn 开发入口改用 localhost，在创建凭据前拒绝 IP 地址并提示正确入口，修复 Firefox 在 127.0.0.1 下的无效域名错误。

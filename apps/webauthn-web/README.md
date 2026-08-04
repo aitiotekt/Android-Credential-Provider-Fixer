@@ -1,6 +1,8 @@
 # WebAuthn test website
 
-Static Solid 2 / Tailwind 4 SPA, deployed at `/webauthn/` together with VitePress by **Web**. No server, cookies, analytics, application storage or WebAuthn response uploads. Browser memory holds the current test identity, challenge and public key. Refresh/clear discards these; the password manager's real test credential must be removed separately.
+Static Solid 2 / Tailwind 4 SPA, deployed at `/webauthn/` together with VitePress by **Web**. No server, cookies, analytics, application storage or WebAuthn response uploads. Browser memory holds the current username, test identity, challenge and public key. There is no session lifetime timer; each operation retains a five-minute deadline. Refresh/clear discards these; the password manager's real test credential must be removed separately.
+
+Without a recognized scene, the site defaults to Explore mode: enter a username and register/authenticate in one view, including repeated authentication with fresh challenges and updated signature counters. Editing the username clears the previous local registration. The Android app supplies `?scene=webauthn-diagnosis-android-app`, defaulting to Guided mode (create → verify → complete) and enabling Android return instructions. Unknown scene values behave like a generic visit. The toolbar switches modes without discarding the current test; switching is disabled during operations.
 
 SimpleWebAuthn verifies the registration structure and authentication signature locally using WebCrypto. Requests require user verification and a resident credential, support ES256/RS256, and request no attestation. Vendor-attestation responses are rejected before verification can enter metadata/certificate paths. This is a local diagnostic, not server authentication or proof of provider reliability.
 

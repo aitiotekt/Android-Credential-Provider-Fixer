@@ -8,11 +8,25 @@ SolidJS WebView -> 收敛的 Tauri IPC -> Tauri app adapter -> core use case
 CLI presentation ------------------> CLI app adapter ----> CommandRunner port
 ```
 
+## 仓库结构
+
+| 路径 | 职责 |
+| --- | --- |
+| `packages/core` | 平台无关的领域实体、DTO、适配器接口与应用编排 |
+| `packages/storage` | 桌面应用与 CLI 共用的原子本地快照 |
+| `apps/tauri-app` | SolidJS WebView、Tauri IPC 与桌面进程适配器 |
+| `apps/cli` | CLI 展示与 Tokio 进程适配器 |
+| `apps/android-app` | 原生 Kotlin/Compose WebAuthn 指引，由用户确认浏览器结果 |
+| `apps/webauthn-web` | 在浏览器本地注册和认证通行密钥的静态测试工具 |
+| `docs` | 中英文文档源文件 |
+| `docsite` | VitePress 文档工作区 |
+| `scripts` 与 `justfiles` | 仓库自动化、检查与发布工具 |
+
 ## Core
 
 `packages/core` 包含应用 DTO、领域状态、稳定错误码、use-case 编排和 adapter trait，不依赖 Tauri、Clap 或具体进程实现。`CommandRequest` 保存原生可执行路径、参数数组、超时与聚合输出上限；`CommandOutput` 以字节保存 stdout 和 stderr，避免非 UTF-8 设备输出被静默破坏。
 
-Phase 1 ADB use case 只能使用已验证的 ADB 路径、当前设备快照中的 serial、解析后的非负 user ID、固定 Credential Provider service action 和三个 setting 的读取 allowlist 构造请求。通用 runner 只是 Rust 内部端口，不会成为 IPC 或 CLI 用户输入面。
+只读 ADB 用例 只能使用已验证的 ADB 路径、当前设备快照中的 serial、解析后的非负 user ID、固定 Credential Provider service action 和三个 setting 的读取 allowlist 构造请求。通用 runner 只是 Rust 内部端口，不会成为 IPC 或 CLI 用户输入面。
 
 应用模型明确区分值对象与实体。ADB 验证结果、设备属性、组件、设置值、诊断结论和错误是不可变值；ADB 发现、ADB 选择、设备枚举、诊断、预览、操作计划和执行是会话实体，具有不可混用的不透明 ID 与明确父 ID；快照是带 revision 的持久化实体。`DiagnosisReport.completeness` 只描述报告完整程度，与诊断实体的异步生命周期分离。
 
@@ -36,6 +50,6 @@ IPC schema v2 将 ADB 选择绑定到 Discovery ID，将设备枚举绑定到 AD
 
 ## 交付架构
 
-`acp-fixer-metadata.toml` 是版本、发布 target 和macOS 签名策略的真源。`scripts/lib/release` 下的类型化模块负责版本/ref 策略、staging、许可证声明、manifest 与幂等决策；GitHub workflow YAML 只负责调度。Tests、Release 和 Docs 使用独立 workflow 与最小权限。发布必须绑定精确的成功 Tests run 与源码 SHA；各平台 job 先上传私有输入，再由唯一汇总 job 验证完整的八产物矩阵，之后才生成 attestation 并发布。稳定版 macOS 必须签名/notarization；Windows 使用单一构建路径，不包含 Authenticode 或 CA 凭据。所有渠道（包括 alpha/beta）必须生成 GitHub Artifact Attestation 和 SHA-256；manifest 的 `signed` 仅表示平台签名，来源证明单独呈现。Windows 稳定版仍需审批，macOS 签名失败绝不降级。workflow 与发布工具永不发现或调用 ADB。
+`acp-fixer-metadata.toml` 是版本、发布 target 和macOS 签名策略的真源。`scripts/lib/release` 下的类型化模块负责版本/ref 策略、staging、许可证声明、manifest 与幂等决策；GitHub workflow YAML 只负责调度。Tests、Release、Web 和 Android Release 使用独立 workflow 与最小权限。发布必须绑定精确的成功 Tests run 与源码 SHA；各平台 job 先上传私有输入，再由唯一汇总 job 验证完整的八产物矩阵，之后才生成 attestation 并发布。稳定版 macOS 必须签名/notarization；Windows 使用单一构建路径，不包含 Authenticode 或 CA 凭据。所有渠道（包括 alpha/beta）必须生成 GitHub Artifact Attestation 和 SHA-256；manifest 的 `signed` 仅表示平台签名，来源证明单独呈现。Windows 稳定版仍需审批，macOS 签名失败绝不降级。workflow 与发布工具永不发现或调用 ADB。
 
 [English](../en/001-ARCHITECTURE.md) | [中文](001-ARCHITECTURE.md)

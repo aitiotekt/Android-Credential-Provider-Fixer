@@ -1,17 +1,27 @@
 # 项目概览
 
-Android Credential Provider Fixer 处理 Android 14 及以上系统中的一种特定故障：OEM 设置界面显示某个 provider 为首选，但 Credential Manager 实际使用的 enabled-provider 状态仍指向其他 provider 或不完整。此时 passkey 请求可能回退到其他 provider，或者表现为没有响应。
+Android Credential Provider Fixer 处理 Android 14 及以上系统中的一种特定故障：OEM 设置界面显示某个密码管理器为首选，但凭据管理器实际使用的已启用提供方状态仍指向其他提供方或不完整。此时通行密钥请求可能回退到其他提供方，或者表现为没有响应。
 
-项目刻意保持本地、透明和范围收敛。它会发现用户自行安装的 ADB，确认用户明确选择的设备与当前 Android user，枚举已注册的 `CredentialProviderService`，读取相关状态并解释不一致。后续修复阶段只会提供一种模式：把用户选择的 component 固定为唯一 enabled 和 primary provider。
+## 设备诊断与修复
 
-## 当前版本
+桌面应用和 CLI 使用用户自行安装的 ADB，检查明确选择的设备与前台 Android 用户，枚举已注册的凭据提供方服务，读取相关设置并解释不一致。
 
-`0.1.0-alpha.6` 保留诊断与有限的凭据提供方变更，并新增可复现检查、原生 CLI 归档、Tauri 安装包流水线、发布证明与双语文档站部署。注入的前端领域服务仍持有会话实体并派生唯一当前视图；只含 fixture gateway 的演示子 Injector 无法解析真实设备 gateway。凭据提供方刷新、强制停止、WebAuthn 启动、报告导出和物理设备写入尚未实现。
+修复只提供一种明确模式：将选中的已注册提供方锁定为唯一启用和主要提供方。用户在执行前检查变更；短期一次性操作计划、已保存的快照、最新状态复核和回读验证共同保护每次写入。写入失败会触发恢复，也可以恢复已保存的配置。锁定期间其他提供方可能不再出现，具体边界见 [ADB 行为与安全](002-ADB-BEHAVIOR-AND-SAFETY.md)。
+
+演示模式使用内置数据，无需 ADB 或连接设备即可体验桌面流程，不能执行真实设备操作。设备操作的自动化测试使用模拟实现和测试可执行文件，不能证明所有厂商设备均兼容。详见[支持设备与排障](003-SUPPORT-AND-TROUBLESHOOTING.md)。
+
+## 浏览器测试与 Android 指引
+
+独立的 [WebAuthn 网站](/webauthn/)在当前浏览器中测试通行密钥创建和认证。默认探索模式在同一视图提供用户名输入、注册和认证；引导模式依次完成创建、验证和结果确认。验证在本地完成，当前测试数据保存在页面内存中。
+
+原生 Android 配套应用引导用户设置系统，打开网站的引导模式，再由用户确认浏览器结果。它不会通过 ADB 诊断或修复设备设置，也不会自动接收浏览器结果。用法、授权与清理说明见 [WebAuthn 配套应用指南](005-WEBAUTHN-DIAGNOSIS.md)。
 
 ## 产品边界
 
-项目不会安装 ADB 或驱动、请求 root、提供任意终端、读取保险库、读取或删除 passkey、修改 `autofill_service`、猜测多 provider 序列化格式或上传数据。Android secure setting 名称始终被视为实现细节，而不是稳定公开 API。
+设备工具不会安装 ADB 或驱动、请求 root、提供任意终端、读取保险库或通行密钥内容、删除通行密钥、修改自动填充设置或上传诊断数据。浏览器工具仅在用户同意后创建真实测试通行密钥，清除页面数据不会删除密码管理器中的凭据。
 
-首个受支持发行版面向 macOS Apple Silicon、macOS Intel 与 Windows x64。Linux 可以从源码构建，但在 WebKitGTK 和打包可移植性得到保证前不提供预编译产物。
+桌面发布目标为 macOS Apple Silicon、macOS Intel 和 Windows x64；原生 CLI 归档还覆盖 Linux GNU ARM64/x64，但不提供 Linux 图形界面安装包。可用性、校验与 Android 分发说明见[分发指南](004-DISTRIBUTION-AND-STORE.md)。
+
+历史变化见[桌面与 Web 变更日志](CHANGELOG.md)和 [Android 变更日志](CHANGELOG-ANDROID.md)，未来计划见[路线图](100-ROADMAP.md)。
 
 [English](../en/000-OVERVIEW.md) | [中文](000-OVERVIEW.md)

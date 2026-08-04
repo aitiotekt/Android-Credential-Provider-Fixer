@@ -2,7 +2,7 @@
 
 ## Current status
 
-Version `0.1.0-alpha.6` permits only the documented reads and bounded writes to `credential_service` and `credential_service_primary`. A write requires a current diagnosis entity, a five-minute one-use plan bound to that diagnosis, an atomic schema-v2 snapshot, exact state revalidation, read-back verification, and automatic recovery. `autofill_service` remains read-only. The Demo frontend session resolves only a fixture gateway from its child Injector and cannot fall through to the live Tauri device gateway.
+The device tool permits only the documented reads and bounded writes to `credential_service` and `credential_service_primary`. A write requires a current diagnosis entity, a five-minute one-use plan bound to that diagnosis, an atomic schema-v2 snapshot, exact state revalidation, read-back verification, and automatic recovery. `autofill_service` remains read-only. The Demo frontend session resolves only a fixture gateway from its child Injector and cannot fall through to the live Tauri device gateway.
 
 Release workflows never invoke ADB. Every release channel provides GitHub Artifact Attestations, a manifest, and SHA-256 checksums. Windows artifacts are not Authenticode-signed and require no CA credentials; provenance verifies build origin, not Windows publisher identity or SmartScreen reputation. Stable macOS artifacts require platform signing and notarization, with environment-scoped credentials and no unsigned fallback after signing failure. The manifest `signed` field describes platform code signing only. The application has no updater or minisign signing keys.
 

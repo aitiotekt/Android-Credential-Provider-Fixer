@@ -4,26 +4,31 @@ test.beforeEach(async ({ context }) => {
 	await context.credentials.install();
 });
 
-test("expiry discards the current attempt", async ({ page }) => {
+test("an idle test remains usable after more than an hour", async ({
+	page,
+}) => {
 	await page.clock.install();
-	await page.goto("./");
+	await page.goto("./?scene=webauthn-diagnosis-android-app");
 	await page.getByRole("combobox").selectOption("en");
 	await page.getByRole("checkbox").check();
 	await page.getByRole("button", { name: "Create test passkey" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Test passkey created" }),
+		page.getByRole("heading", { name: "Success: Test passkey created" }),
 	).toBeVisible();
 	await page.clock.fastForward(3_600_001);
-	await expect(page.getByRole("alert")).toContainText("expired");
+	await expect(page.getByRole("alert")).toHaveCount(0);
+	await page.getByRole("button", { name: "Verify test passkey" }).click();
 	await expect(
-		page.getByRole("button", { name: "Verify test passkey" }),
-	).toHaveCount(0);
+		page.getByRole("heading", {
+			name: "Success: Creation and signature verification succeeded",
+		}),
+	).toBeVisible();
 });
 
 test("cleared attempts cannot be resurrected by a late registration", async ({
 	page,
 }) => {
-	await page.goto("./");
+	await page.goto("./?scene=webauthn-diagnosis-android-app");
 	await page.getByRole("combobox").selectOption("en");
 	await page.evaluate(() => {
 		const original = navigator.credentials.create.bind(navigator.credentials);
@@ -38,7 +43,7 @@ test("cleared attempts cannot be resurrected by a late registration", async ({
 	await page.getByRole("button", { name: "Clear test data" }).click();
 	await page.waitForTimeout(700);
 	await expect(
-		page.getByRole("heading", { name: "Ready to test" }),
+		page.getByRole("heading", { name: "Cleared: Page test data removed" }),
 	).toBeVisible();
 	await expect(
 		page.getByRole("button", { name: "Verify test passkey" }),
@@ -47,7 +52,7 @@ test("cleared attempts cannot be resurrected by a late registration", async ({
 
 for (const field of ["challenge", "origin", "crossOrigin"] as const) {
 	test(`registration rejects modified ${field}`, async ({ page }) => {
-		await page.goto("./");
+		await page.goto("./?scene=webauthn-diagnosis-android-app");
 		await page.getByRole("combobox").selectOption("en");
 		await page.evaluate((field) => {
 			const original = navigator.credentials.create.bind(navigator.credentials);
@@ -85,7 +90,7 @@ test("register, cryptographically verify, and clear without response uploads", a
 			requests.push(request.url());
 		}
 	});
-	await page.goto("./");
+	await page.goto("./?scene=webauthn-diagnosis-android-app");
 	await page.evaluate(() => {
 		const original = navigator.credentials.create.bind(navigator.credentials);
 		navigator.credentials.create = async (options) => {
@@ -105,7 +110,7 @@ test("register, cryptographically verify, and clear without response uploads", a
 	await page.getByRole("checkbox").check();
 	await page.getByRole("button", { name: "Create test passkey" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Test passkey created" }),
+		page.getByRole("heading", { name: "Success: Test passkey created" }),
 	).toBeVisible();
 	expect(
 		await page.evaluate(
@@ -118,16 +123,16 @@ test("register, cryptographically verify, and clear without response uploads", a
 	await page.getByRole("button", { name: "Verify test passkey" }).click();
 	await expect(
 		page.getByRole("heading", {
-			name: "Creation and signature verification succeeded",
+			name: "Success: Creation and signature verification succeeded",
 		}),
 	).toBeVisible();
 	expect(requests).toEqual([]);
 	expect(
 		await page.evaluate(() => [localStorage.length, sessionStorage.length]),
 	).toEqual([0, 0]);
-	await page.getByRole("button", { name: "Clear test data" }).click();
+	await page.getByRole("button", { name: "Start a new test" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Ready to test" }),
+		page.getByRole("heading", { name: "Cleared: Page test data removed" }),
 	).toBeVisible();
 	// Clearing the RP is not deletion from a real password manager.
 	expect(await context.credentials.get()).toHaveLength(1);
@@ -136,12 +141,12 @@ test("register, cryptographically verify, and clear without response uploads", a
 test("Chinese layout, refresh, and dark theme", async ({ page }) => {
 	await page.emulateMedia({ colorScheme: "dark" });
 	await page.setViewportSize({ width: 360, height: 780 });
-	await page.goto("./");
+	await page.goto("./?scene=webauthn-diagnosis-android-app");
 	await page.getByRole("combobox").selectOption("zh");
 	await page.getByRole("checkbox").check();
 	await page.getByRole("button", { name: "创建测试通行密钥" }).click();
 	await expect(
-		page.getByRole("heading", { name: "已创建测试通行密钥" }),
+		page.getByRole("heading", { name: "成功：已创建测试通行密钥" }),
 	).toBeVisible();
 	expect(
 		await page.evaluate(
@@ -157,7 +162,7 @@ test("Chinese layout, refresh, and dark theme", async ({ page }) => {
 test("cancellation is recoverable and never reported as success", async ({
 	page,
 }) => {
-	await page.goto("./");
+	await page.goto("./?scene=webauthn-diagnosis-android-app");
 	await page.getByRole("combobox").selectOption("en");
 	await page.evaluate(() => {
 		navigator.credentials.create = async () => {
@@ -173,12 +178,12 @@ test("cancellation is recoverable and never reported as success", async ({
 });
 
 test("a modified signature is rejected", async ({ page }) => {
-	await page.goto("./");
+	await page.goto("./?scene=webauthn-diagnosis-android-app");
 	await page.getByRole("combobox").selectOption("en");
 	await page.getByRole("checkbox").check();
 	await page.getByRole("button", { name: "Create test passkey" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Test passkey created" }),
+		page.getByRole("heading", { name: "Success: Test passkey created" }),
 	).toBeVisible();
 	await page.evaluate(() => {
 		const original = navigator.credentials.get.bind(navigator.credentials);

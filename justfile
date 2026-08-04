@@ -1,4 +1,5 @@
-set windows-shell := ["pwsh.exe", "-NoLogo", "-ExecutionPolicy", "RemoteSigned", "-Command"]
+# Windows requires PowerShell 7.5+ for -CommandWithArgs argument forwarding.
+set windows-shell := ["pwsh.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-CommandWithArgs"]
 
 import "justfiles/setup.just"
 import "justfiles/dev.just"

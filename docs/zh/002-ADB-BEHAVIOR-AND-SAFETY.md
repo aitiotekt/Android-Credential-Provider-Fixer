@@ -4,7 +4,7 @@ ADB 由用户自行安装和提供。应用会搜索 GUI 进程环境和文档�
 
 每条设备命令都使用 `adb -s SERIAL`。serial 只能来自当前 `adb devices -l` 结果，不能由前端自由输入。应用不会自动选择设备；unauthorized、offline、no-permission 和未发现设备是不同状态。诊断前后端会重新枚举。当前 Android user 来自 `am get-current-user`，并必须解析为非负整数。
 
-Phase 1 只读取厂商、型号、codename、Android release/API、前台 user、注册 Credential Provider service，以及 `credential_service`、`credential_service_primary` 和 `autofill_service`。它不读取 build fingerprint、日志、账号、保险库或 passkey 材料。Setting 会明确表示不存在、空值、有值或不可读取；未知 OEM 序列化保留原值并使报告标记为 incomplete。
+诊断只读取厂商、型号、codename、Android release/API、前台 user、注册 Credential Provider service，以及 `credential_service`、`credential_service_primary` 和 `autofill_service`。它不读取 build fingerprint、日志、账号、保险库或 passkey 材料。Setting 会明确表示不存在、空值、有值或不可读取；未知 OEM 序列化保留原值并使报告标记为 incomplete。
 
 只有 package service enumeration 针对 `android.service.credentials.CredentialProviderService` 返回的 component 才能成为候选。注册 service 不等于已经证明支持 passkey、当前环境兼容或保险库已解锁。
 

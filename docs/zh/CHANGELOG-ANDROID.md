@@ -5,6 +5,7 @@
 <!--
 ## Unreleased
 
+- 通过 Custom Tabs 或浏览器回退打开 WebAuthn 网站时显式传递 Android 场景，默认进入引导模式并显示对应的返回说明。
 - 开发 recipe 改用 Unix/PowerShell 原生参数转发，移除 Node 启动器，增加输入输出、退出码和 Unix 中断的隔离回归测试。
 - 新增 `just dev-android`：明确交互或非交互选择设备，构建、安装并启动 debug 应用，可选监听改动后串行重新部署；真正的 Live Edit 仍使用 Android Studio，不卸载、清空数据或更改设备设置。
 - Android 14+ 优先通过 AndroidX CredentialManager 打开凭据提供方专项设置；旧系统或启动失败时明确提示回退系统设置，不将返回视为提供方已启用。

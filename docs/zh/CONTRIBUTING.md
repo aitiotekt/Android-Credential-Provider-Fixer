@@ -4,13 +4,31 @@
 
 ## 环境配置
 
+安装 [mise](https://mise.jdx.dev/)，使用 [mise.toml](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/mise.toml) 和 [rust-toolchain.toml](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/rust-toolchain.toml) 声明的工具版本。以这些文件为准，不在 README 中维护第二份版本清单。原生构建的系统依赖仍取决于目标平台。
+
+Android 开发在 Android Studio 中打开仓库根目录，使用根 Gradle Wrapper，并通过 `ANDROID_HOME` 或根目录本地 `local.properties` 配置 SDK。模块任务、WebAuthn 开发及设备选择要求见[配套应用开发指南](005-WEBAUTHN-DIAGNOSIS.md#开发和发布)。
+
 ```sh
 mise trust
 just setup
 just verify
 ```
 
-使用 `just dev` 运行桌面应用，`just dev-cli --help` 运行 CLI，`just dev-docs` 运行文档站，`just dev-web` 运行 WebAuthn 网站。`just dev-android` 在明确选择设备后构建、安装并启动 Android 调试应用；非交互选择和监听模式见[开发指南](005-WEBAUTHN-DIAGNOSIS.md#android-device-development)。代码和代码注释使用英文；面向用户的文档在 `docs/en` 与 `docs/zh` 中成对维护。根 `CHANGELOG.md` 是英文真源，`docs/zh/CHANGELOG.md` 是中文真源。
+使用 `just dev` 运行桌面应用，`just dev-cli --help` 运行 CLI，`just dev-docs` 运行文档站，`just dev-web` 运行 WebAuthn 网站。`just dev-android` 在明确选择设备后构建、安装并启动 Android 调试应用；非交互选择和监听模式见[开发指南](005-WEBAUTHN-DIAGNOSIS.md#开发和发布)。代码和代码注释使用英文；面向用户的文档在 `docs/en` 与 `docs/zh` 中成对维护。根 `CHANGELOG.md` 是英文真源，`docs/zh/CHANGELOG.md` 是中文真源。
+
+## 图标资源
+
+图标主文件为 `assets/icons/app-icon.png`（通用资源与 macOS Icon Composer 图稿）和 `assets/icons/app-icon-macos-legacy.png`（旧版 ICNS 所需的透明安全区域）。修改任一主文件后运行 `just sync-icons`。仓库结构与前端实现边界见[架构指南](001-ARCHITECTURE.md)。
+
+## 文档职责
+
+- **README：** 介绍工具、面向用户的能力、使用入口及必要的安全影响；其他内容使用简短概括和链接，不加入版本公告、工具链清单或实现细节。
+- **专题指南：** 在对应文档中说明当前行为、用法、架构、支持范围和分发方式。
+- **贡献指南：** 说明环境配置、开发命令、检查、工程约定和发布维护。
+- **变更日志：** 将变化记录在 Unreleased 或引入变化的版本中，保留历史版本章节。
+- **路线图：** 记录计划及完成状态，不把计划中的行为描述为已经可用。
+
+保持中英文结构对应，相关主题通过链接串联，避免复制整段内容。
 
 ## 工程规则
 
@@ -28,6 +46,8 @@ just verify
 - 行为变化应更新当前状态文档；历史变化应记录在 changelog 中。
 
 修改受管文档别名后运行 `just sync-docs`；该命令拒绝覆盖普通文件。提交变更前依次运行 `just format`、`just verify` 和 `just release-check`。
+
+## 发布维护
 
 `acp-fixer-metadata.toml` 是发布元数据真源。使用 `just --list` 查看维护命令；若尚未激活 mise 工具链，通过 `mise exec -- just ...` 执行。
 

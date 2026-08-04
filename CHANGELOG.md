@@ -1,10 +1,14 @@
 # Changelog
 
-All notable project changes are recorded here. The project is pre-release software and does not yet promise a stable diagnostic JSON schema across alpha versions.
+All notable project changes are recorded here. The project is pre-release software and does not yet promise a stable diagnostic JSON schema across prereleases.
 
 <!--
 ## Unreleased
 
+- Reorganize bilingual documentation around clear responsibilities: keep the README user-focused; move development, CLI, download-verification, repository-layout, release, and maintenance details into their owning guides; correct stale version, roadmap, and current-state descriptions.
+- Require PowerShell 7.5+ for Windows Just recipes and use shared `-CommandWithArgs` invocation to simplify Android development argument forwarding while preserving native exit codes.
+- Lead WebAuthn results with prominent success, failure, incomplete, timeout and cleared summaries before explanations; keep bilingual result announcements above the form.
+- Make the WebAuthn site a general-purpose tool with default username-based exploration and a switchable three-step guided mode. Pass the Android scene explicitly, scope return guidance to that scene, remove the one-hour session limit, and retain fresh challenges and per-operation deadlines for repeated authentication.
 - Temporarily limit WebAuthn browser checks to Chromium and Firefox until Playwright fixes Linux WebKit virtual-authenticator compatibility with SimpleWebAuthn; document the condition for restoring WebKit coverage without a project-specific shim.
 - Fix Android development script/test lint findings with explicit blocks and optional chaining; scope Turbo environment checks to exclude the directly invoked Android development script.
 - Use localhost for WebAuthn development and reject IP origins with an actionable message before credential creation, fixing Firefox's invalid-domain failure at 127.0.0.1.
