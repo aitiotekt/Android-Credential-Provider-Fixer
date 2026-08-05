@@ -148,10 +148,21 @@ export default defineConfig({
 				const hrefIndex = token.attrIndex("href");
 				if (hrefIndex >= 0 && token.attrs) {
 					const href = token.attrs[hrefIndex][1];
-					token.attrs[hrefIndex][1] = rewriteLocalHref(
+					const rewrittenHref = rewriteLocalHref(
 						href,
 						String(environment.path ?? environment.realPath ?? ""),
 					);
+					const appHref = rewrittenHref.replace(
+						/^https:\/\/acp-fixer\.aitiotekt\.com(?=\/)/,
+						"",
+					);
+					if (/^\/webauthn(?:\/|[?#]|$)/.test(appHref)) {
+						// The sibling app needs a document load, not a VitePress route.
+						token.attrs[hrefIndex][1] = appHref;
+						token.attrSet("target", "_self");
+					} else {
+						token.attrs[hrefIndex][1] = rewrittenHref;
+					}
 				}
 				return fallback
 					? fallback(tokens, index, options, environment, self)
@@ -174,7 +185,7 @@ export default defineConfig({
 			lang: "en",
 			themeConfig: {
 				nav: [
-					{ text: "WebAuthn test", link: "/webauthn/" },
+					{ text: "WebAuthn test", link: "/webauthn/", target: "_self" },
 					{ text: "Home", link: "/" },
 					{ text: "Docs", link: "/docs/000-OVERVIEW", activeMatch: "^/docs/" },
 					{ text: "Security", link: "/security" },
@@ -192,7 +203,7 @@ export default defineConfig({
 			themeConfig: {
 				nav: [
 					{ text: "首页", link: "/zh/" },
-					{ text: "WebAuthn 测试", link: "/webauthn/" },
+					{ text: "WebAuthn 测试", link: "/webauthn/", target: "_self" },
 					{
 						text: "文档",
 						link: "/zh/docs/000-OVERVIEW",

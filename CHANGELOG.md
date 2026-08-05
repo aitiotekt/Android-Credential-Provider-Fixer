@@ -5,6 +5,7 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
+- Load the standalone WebAuthn app with full-page navigation from both VitePress locale menus and Markdown links, avoiding a client-side documentation 404 on the first click.
 - Reorganize bilingual documentation around clear responsibilities: keep the README user-focused; move development, CLI, download-verification, repository-layout, release, and maintenance details into their owning guides; correct stale version, roadmap, and current-state descriptions.
 - Require PowerShell 7.5+ for Windows Just recipes and use shared `-CommandWithArgs` invocation to simplify Android development argument forwarding while preserving native exit codes.
 - Lead WebAuthn results with prominent success, failure, incomplete, timeout and cleared summaries before explanations; keep bilingual result announcements above the form.

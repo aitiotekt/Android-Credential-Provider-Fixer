@@ -5,6 +5,7 @@
 <!--
 ## Unreleased
 
+- 从 VitePress 中英文导航和 Markdown 链接完整加载独立 WebAuthn 应用，修复首次点击被文档客户端路由接管而显示 404 的问题。
 - 按明确职责整理双语文档：README 保持面向用户；开发、CLI、下载校验、仓库结构、发布和维护细节归入对应指南；修正过时的版本、路线图和当前状态描述。
 - Windows Just recipe 要求 PowerShell 7.5+，统一使用 `-CommandWithArgs`，简化 Android 开发参数转发并保留原生退出码。
 - WebAuthn 结果先显著显示成功、失败、未完成、超时或已清除的概括，再给出说明；中英文结果提示统一放在表单上方。
