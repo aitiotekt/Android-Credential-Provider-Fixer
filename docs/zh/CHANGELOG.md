@@ -5,30 +5,6 @@
 <!--
 ## Unreleased
 
-- 从 VitePress 中英文导航和 Markdown 链接完整加载独立 WebAuthn 应用，修复首次点击被文档客户端路由接管而显示 404 的问题。
-- 按明确职责整理双语文档：README 保持面向用户；开发、CLI、下载校验、仓库结构、发布和维护细节归入对应指南；修正过时的版本、路线图和当前状态描述。
-- Windows Just recipe 要求 PowerShell 7.5+，统一使用 `-CommandWithArgs`，简化 Android 开发参数转发并保留原生退出码。
-- WebAuthn 结果先显著显示成功、失败、未完成、超时或已清除的概括，再给出说明；中英文结果提示统一放在表单上方。
-- 将 WebAuthn 网站改为通用测试工具：默认提供自定义用户名的探索模式，可切换三步引导模式；Android 显式传递场景参数，仅在该场景显示返回提示。移除一小时会话时限，反复认证仍使用新挑战并保留单次操作超时。
-- WebAuthn 浏览器检查暂时仅运行 Chromium 和 Firefox，待 Playwright 修复 Linux WebKit 虚拟认证器与 SimpleWebAuthn 的兼容性后恢复 WebKit 覆盖，并明确无需项目专用兼容补丁的恢复条件。
-- 修复 Android 开发脚本及测试的 lint 问题，补齐代码块并使用可选链；直接运行的 Android 开发脚本不再套用 Turbo 环境变量检查。
-- WebAuthn 开发入口改用 localhost，在创建凭据前拒绝 IP 地址并提示正确入口，修复 Firefox 在 127.0.0.1 下的无效域名错误。
-- 在转换为用户提示前，将 WebAuthn 原始异常与当前测试状态输出到浏览器控制台，便于排查失败原因。
-- 显式配置 Playwright 浏览器项目，新增 `just test-web-firefox`，以虚拟凭据单独验证 Firefox 中的 WebAuthn 流程。
-- Android 开发入口改用 Unix/PowerShell 分平台 recipe，移除中间 Node 启动器，保留参数边界、终端输入输出和原生退出码，并增加跨平台隔离 CI 测试。
-- 按职责整理 Just recipe：WebAuthn 开发命令归入 dev.just，平台检查归入 quality.just，同步及版本/发布策略维护归入 maintenance.just；命令名称和行为不变。
-- 将 Android 独立变更日志调整为根英文真源与 docs 多语言结构，接入文档站受管链接和双语导航。
-- 将 Android 构建工具升级至 JDK 26、Gradle 9.7.1、AGP 9.4.0 与 Kotlin/Compose 2.4.20，迁移至内置 Kotlin；保留 JVM 目标 17 和 Android SDK 兼容范围。
-- 将 Android Gradle 入口及 Wrapper 移至仓库根目录，模块命名为 `:webauthn-diagnosis`，使 Android Studio 可打开完整 monorepo；保持应用身份与独立版本体系不变。
-- 新增 WebAuthn 诊断 Android 配套应用和仅内存保存状态的静态测试站，使用浏览器本地注册/签名验证，并以 Playwright 虚拟凭据覆盖测试。
-- 分离手动触发的 Android 签名 AAB／商店流水线和桌面发布；增加 Android 独立版本、变更日志及 `set-version --app`，Web package 版本继续跟随桌面。
-- 将 Docs 部署改为仅 main 发布的 Web 流水线，合并 VitePress 和 `/webauthn/`；本地默认配置 Java/Gradle，CI 按任务选择。真实提供方与 Play 验收仍需人工完成。
-- 修复预期跳过的任务导致发布被跳过；配置 tag 创建者身份、隔离重跑时的平台输入、使用真实 Release run 链接，并在公开前复核下载及上传资产，发布未完成时使流水线失败。
-- 使用显式 PowerShell 脚本参数修复 Windows CLI ZIP 打包，要求生成非空归档才算成功，并让 Windows 发布步骤在原生命令失败时立即停止。
-- 在验证和归档前对最终签名 DMG 完成公证与票据附加，并显式要求 DMG 和 CLI 的公证结果均为 Accepted。
-- 在工作区初始化中于 mise 缓存恢复及安装后检查基础工具；仅重装检查失败工具的配置版本，复检成功后才安装依赖。更新 mise 缓存命名空间并保留缓存。
-- 暂时移除第三方许可证声明生成、打包、发布资产及配套工具；保留项目 LICENSE、校验和、manifest 和来源证明。
-
 Agent：新增变更统一记录在这里，并同步英文根 CHANGELOG.md。
 即使元数据仍指向已有版本，也不得把新工作追加到已有版本章节。
 执行 just set-version VERSION 后，将累计条目移入本注释下方新的可见版本章节
@@ -36,76 +12,52 @@ Agent：新增变更统一记录在这里，并同步英文根 CHANGELOG.md。
 和 just release-check。set-version 不会自动搬移 changelog 条目。
 -->
 
+## 0.1.0-beta.2
+
+- 新增 WebAuthn 诊断 Android 配套应用，以及仅在页面内存保存状态的测试站，注册与签名验证均在浏览器本地完成。
+- 将 WebAuthn 网站改为通用测试工具：支持用户名探索、三步引导、Android 场景返回提示和显著结果概括，并取消一小时会话时限。开发入口改用 localhost，避免 Firefox 在 `127.0.0.1` 下因无效域名失败。
+- 将文档站与 `/webauthn/` 合并为仅 main 部署的 Web 发布；从文档站以整页加载测试应用，并按职责整理双语文档。
+- 将 Android 签名 AAB／商店发布从桌面发布中分离，Android 使用独立版本和变更日志。Android 开发改用 Unix/PowerShell 原生 Just recipe（Windows 需 PowerShell 7.5+）。
+- 加强发布过程：签名 macOS DMG 先公证并附加票据，发布未完成则失败，并修复 Windows CLI ZIP 打包。暂时停止生成第三方许可证声明。
+- WebAuthn 浏览器测试暂时仅覆盖 Chromium 和 Firefox，待 Playwright 恢复 Linux WebKit 虚拟认证器支持后再加回。
+
 ## 0.1.0-beta.1
 
-- 新增可通过 Just 列表发现的 `just set-version VERSION`、`just set-macos-signing POLICY` 维护命令，并补齐双语发布维护说明。
-- Windows 所有渠道（包括 alpha/beta）统一采用 GitHub Artifact Attestation 与 SHA-256，删除 PFX 凭据和 Authenticode 分支/配置。macOS 保留可配置预发布签名，稳定版仍强制签名/notarization 与受保护审批。未引入 updater 或 minisign 密钥。
-- Release notes 分别呈现来源证明与平台签名，Windows manifest 保持 `signed: false`。新增无条件生成来源证明的发布检查，汇总产物前必须通过各平台构建。
-- 新增注释形式的 Unreleased 区域及贡献者/Agent 规则，先累计新变更，再统一归入新版本，保留历史版本记录。
+- 新增 `just set-version` 和 `just set-macos-signing`，以及用于累计后续变更的 Unreleased 变更日志流程。
+- Windows 所有渠道改为 GitHub Artifact Attestation 与 SHA-256，移除 Authenticode 和 PFX。macOS 仍可配置预发布签名，稳定版强制签名与公证。Release notes 区分来源证明与平台签名。
 
 ## 0.1.0-alpha.6
 
-- 新增职责独立、最小权限且固定 Action revision 的 Tests、Release 与 Docs workflow。
-- 新增项目发布元数据、严格的 stable/alpha/beta 版本策略、精确 Tests run/源码 SHA 校验，以及幂等 tag 和 GitHub Release 处理。
-- 新增 macOS ARM64/x64、Windows x64、Linux GNU ARM64/x64 原生 CLI 归档，以及两个 macOS 架构的 Tauri DMG 与 Windows x64 NSIS 安装包。
-- 新增按平台区分的预发布签名策略。稳定版必须经过受保护审批，在 macOS 使用 Developer ID 签名与 notarization，在 Windows 使用带时间戳的 Authenticode；签名失败绝不降级为未签名产物。
-- 新增确定性 staging、SHA-256 checksum、schema v1 发布 manifest、GitHub artifact attestation，以及从本变更日志生成的 Release notes。
-- 新增 Rust 与 WebView 第三方许可证声明，并将其纳入 CLI 归档、Tauri release 资源和 GitHub Release assets。
-- 新增双语 VitePress 文档站到 `acp-fixer.aitiotekt.com` 的部署，包含 sitemap、逐页 canonical URL、本地搜索和受管自定义域名配置。
-- npm/crates 发布、自动更新、应用商店、Linux GUI 包、MSI/MSIX、macOS universal binary，以及 CI/Release 中的全部 ADB 活动仍不在当前范围内。
+- 发布 macOS ARM64/x64、Windows x64、Linux GNU ARM64/x64 原生 CLI 归档，两个 macOS 架构的 Tauri DMG，以及 Windows x64 NSIS 安装包。
+- 新增 Tests、Release、Docs 流水线，以及版本元数据、SHA-256、schema v1 manifest、GitHub attestation、由本日志生成的 Release notes 和生成的第三方许可证声明。稳定版需受保护审批；macOS 需 Developer ID 签名与公证；当时 Windows 仍要求 Authenticode。
+- 将双语 VitePress 文档站部署到 `acp-fixer.aitiotekt.com`。
+- npm/crates 发布、自动更新、应用商店、Linux GUI 包，以及 CI 中的 ADB 仍不在范围内。
 
 ## 0.1.0-alpha.5
 
-- 主流平台继续使用 mise 为 pnpm 选择的默认 backend，仅在 Intel macOS 上改用 pnpm 官方 GitHub Release 产物，绕过 Aqua registry 缺少 `darwin/amd64` 映射的问题。
-- 将桌面前端集中式的页面、IPC 与跨视图 signal 图重构为 `injection-js` 领域服务；只使用显式 token、factory provider 和依赖列表，不使用装饰器或反射元数据。
-- 有状态的应用服务改为 class，以构造函数注入依赖，以 private 字段保存生命周期状态，并使用原型方法；闭包工厂仅保留在 controller、adapter 与类库构造边界。
-- 前端订阅与会话 scope 采用 TC39 显式资源管理，以幂等的 `[Symbol.dispose]()`、词法作用域 `using` 和 `DisposableStack` 管理聚合清理。
-- 统一 Vite 与 Vitest 的 Solid-first `unplugin-swc` 兼容转换，并将其放在打包用 `src` 图之外：SWC lowering `using` 并根据实际用法注入精确的 core-js polyfill；Vite 继续保留如实声明的最终构建 target 与 Oxc 压缩，不再并行运行顶层 Oxc 源码转换。
-- 共享事件总线替换为各服务持有、类型精确的 RxJS `DomainEvent<T>` Subject；下游领域服务只接收只读 Observable，渲染层仍只消费状态与快照。
-- 将 `WorkflowService.view` 设为唯一页面来源，并按领域拆分页面容器与只接收 props 的展示组件。
-- 每次真实或演示流程都使用可统一释放的子 Injector；根 Injector 不提供设备 gateway，演示模式只能解析确定性的 fixture adapter。
-- 将所有 Tauri `invoke` 收敛到真实 gateway adapter，并新增 gateway、Injector、装饰器、渲染层事件、signal 所有权和独立导航边界的架构检查。
-- 父实体 ID 不匹配会作为稳定会话错误拒绝；被后续请求取代的异步响应会丢弃；创建计划后预览即被消费；结果不确定的执行失败也不会留下可重放计划。
-- 英文与中文文案拆为独立真源，同时保留递归 key 对称性检查和实体生命周期状态本地化。
-- 前端单元测试移动到各模块的 `__tests__/` 目录，并新增架构检查，防止测试文件再次与生产源码混排。
-- 教程导航改为按目标场景重放领域意图，支持跨视图后退以及完整的模拟变更与恢复生命周期。
-- 将 Chrome、Edge 与 Safari 的具体版本设为唯一兼容性真源，并由其派生 Vite 与 SWC target；运行时目标不再混入 ECMAScript 年度版本。
-- 全局教程入口在替换真实或演示流程前会明确确认，同时处理计划取消、写入中禁止切换，并等待演示初始 DOM 挂载后再启动 Driver.js。
-- 将演示标识与“退出演示模式”提升到 session shell，使其在连接、诊断、变更、结果和快照等所有视图中持续可用。
-- Session scope 变化时重建使用子 Injector 的界面组件，确保切换或重新开始教程进入隔离演示的第一个视图，不再保留之前的工作流画面。
-- 恢复锁定单一凭据提供方操作完成后的快照恢复教程路径，补齐两处遗漏的设备确认步骤，并让 Driver 进度随当前高亮控件的成功交互同步推进。完整教程现包含 24 个步骤；通过“完成并重新诊断”离开时会干净地结束当前教程。
-- Tauri IPC、Core DTO、CLI schema v2 与 snapshot schema v2 均与 alpha.4 保持兼容。
+- 将桌面前端重构为注入式领域服务、可释放的真实/演示会话 scope 和显式资源清理；演示模式无法访问真实 ADB。
+- 补齐引导式演示：替换进行中的会话前需确认，退出入口固定在会话外壳，并覆盖锁定与快照恢复。
+- 中英文文案拆为独立真源。IPC、Core、CLI 与 snapshot schema v2 仍与 alpha.4 兼容。
 
 ## 0.1.0-alpha.4
 
-- 将 ADB 发现、ADB 选择、设备枚举、诊断、预览、操作计划、执行与快照重构为具有强类型不透明 ID 和明确父关系的实体。
-- 后端会话新增单调 revision 与最新诊断 ID；迟到的异步结果会被拒绝，凭据提供方、预览和计划不能跨诊断上下文复用。
-- `DiagnosisReport.status` 更名为 `completeness`，GUI IPC、CLI JSON 和快照统一升级为 schema v2。
-- Preview、Plan、Execution 与 Snapshot 使用显式生命周期。首次可能写入前先持久化 `executing`；取消、过期、漂移和所有执行结果均为不可重放的终态。
-- 旧 v1 快照文件不会删除或覆盖，只在清单中作为不支持警告展示；不迁移早期开发数据。
-- 前端新增判别联合工作流 reducer 与诊断资源状态；只有诊断 ID 与会话最新诊断一致时才显示结果，操作完成后会重新诊断，不再回显旧报告。
-- 演示 fixture 使用确定性的因果 ID 与相同生命周期投影，同时保持与真实 ADB IPC 完全隔离。
-- 每次重新发现 ADB 时都会将已保存选择重新绑定到新的发现实体，不再把过期选择显示为当前选择；选择失效后会回到可操作的候选列表。
-- 设备刷新和诊断会在请求开始时立即开启新的会话 revision，使旧异步结果、预览和操作计划在覆盖当前上下文前失效。
-- 桌面界面会本地化应用、执行、设置和快照错误，不再直接显示内部稳定错误码。
+- 将发现、选择、诊断、预览、计划、执行和快照建模为带身份的实体。会话 revision 会拒绝迟到结果，并阻止跨诊断复用。
+- GUI IPC、CLI JSON 和快照升级为 schema v2。写入前先持久化 `executing`；取消、漂移和所有结果均为终态。v1 快照仅作为不支持警告保留。
+- 仅在诊断仍为会话最新结果时展示；已保存的 ADB 选择会绑定到新的发现；桌面错误改为本地化文案，不再显示内部错误码。
 
 ## 0.1.0-alpha.3
 
-- 桌面界面改用 Tailwind CSS 4 与本地 Solid 组件原语，加入响应式五阶段进度模型，以及适合长值的纵向变更预览。
-- 新增可持久化的跟随系统、浅色和深色外观偏好，实时响应系统主题，并统一 Driver.js 的明暗主题；macOS 最低版本提升到 13.3，Web 构建目标提升到 Safari 16.4。
-- 全面调整英中文案，并本地化设备、发现来源、快照、阻止原因和执行结果状态，不再直接显示内部枚举值。
-- 明确诊断相关文案；已经唯一启用的凭据提供方会显示为不可重复操作的当前状态；已选 ADB 直接呈现在去重后的候选列表中，不再单独重复展示。
-- 新增明确的凭据提供方选择、变更前后预览、五分钟一次性操作计划、版本化原子快照、锁定单一凭据提供方、回读验证、自动恢复和受保护的手动恢复。
-- CLI 新增默认 dry-run 的 `pin`、`snapshots` 和 `restore`；只有 `--apply` 才授权设备写入。
-- 隔离双语演示扩展到模拟锁定与恢复。Driver.js 的“下一步/上一步”现在会在跨视图边界时驱动对应的 Solid 演示场景，同时保留直接操作高亮控件的方式；关闭按钮采用高对比度样式。
-- 写入仍只允许 `credential_service` 与 `credential_service_primary`；自动填充服务、凭据提供方刷新、强制停止、WebAuthn 启动、报告和物理设备写入仍不在范围内。
+- 新增锁定单一凭据提供方和受保护的恢复：明确选择、变更预览、五分钟一次性计划、原子快照、回读验证和自动恢复。
+- CLI 新增默认 dry-run 的 `pin`、`snapshots` 和 `restore`；只有 `--apply` 才会写入设备。
+- 桌面界面改用 Tailwind CSS 4、五阶段进度和可持久化的明暗外观；macOS 最低版本为 13.3。
+- 本地化面向用户的文案，不再暴露内部枚举；演示模式扩展到模拟锁定与恢复。
+- 写入仍仅限 `credential_service` 与 `credential_service_primary`。
 
 ## 0.1.0-alpha.2
 
-- 新增只读 ADB 发现与验证、设备枚举、Android 兼容性检查、前台 user 检查、Credential Provider 枚举和状态诊断。
-- 新增功能对等的 `devices`、`diagnose` 与 `demo` CLI 命令，以及交互和 JSON 模式。
-- 新增双语桌面工作流、ADB 选择持久化、保守诊断结论，以及基于脱敏 Xiaomi/HyperOS 调查的隔离引导式 Demo。
-- Android setting 写入、快照、恢复、报告导出、签名与分发仍不在当前范围内。
+- 新增只读 ADB 发现、设备枚举、兼容性检查、凭据提供方诊断，以及对应的 `devices`、`diagnose` 和 `demo` CLI。
+- 新增双语桌面工作流、ADB 选择持久化，以及基于脱敏 Xiaomi/HyperOS 调查的隔离引导式演示。
+- 设置写入、快照、恢复和分发仍不在范围内。
 
 ## 0.1.0-alpha.1
 

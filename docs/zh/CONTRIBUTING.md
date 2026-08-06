@@ -14,7 +14,7 @@ just setup
 just verify
 ```
 
-使用 `just dev` 运行桌面应用，`just dev-cli --help` 运行 CLI，`just dev-docs` 运行文档站，`just dev-web` 运行 WebAuthn 网站。`just dev-android` 在明确选择设备后构建、安装并启动 Android 调试应用；非交互选择和监听模式见[开发指南](005-WEBAUTHN-DIAGNOSIS.md#开发和发布)。代码和代码注释使用英文；面向用户的文档在 `docs/en` 与 `docs/zh` 中成对维护。根 `CHANGELOG.md` 是英文真源，`docs/zh/CHANGELOG.md` 是中文真源。
+使用 `just dev` 运行桌面应用，`just dev-cli --help` 运行 CLI，`just dev-docs` 运行文档站，`just dev-web` 运行 WebAuthn 网站。`just dev-android` 在明确选择设备后构建、安装并启动 Android 调试应用；非交互选择和监听模式见[开发指南](005-WEBAUTHN-DIAGNOSIS.md#开发和发布)。代码和代码注释使用英文；面向用户的文档在 `docs/en` 与 `docs/zh` 中成对维护。根 `CHANGELOG.md` 是桌面与 Web 的英文真源，`docs/zh/CHANGELOG.md` 是中文真源。Android 使用根 `CHANGELOG-ANDROID.md` 和 `docs/zh/CHANGELOG-ANDROID.md`。
 
 ## 图标资源
 
@@ -53,13 +53,14 @@ just verify
 
 | 命令 | 用途 |
 | --- | --- |
-| `just set-version VERSION` | 同步发布元数据、根/app/docsite package、Tauri 配置、Cargo workspace 与 lockfile。接受 `X.Y.Z`、`X.Y.Z-alpha.N` 或 `X.Y.Z-beta.N`。 |
-| `just check-version` | 检查版本一致性及对应的英中文 CHANGELOG 章节。 |
+| `just set-version VERSION` | 同步桌面、CLI 和 Web package 版本，以及发布元数据、Tauri 配置、Cargo workspace 与 lockfile。接受 `X.Y.Z`、`X.Y.Z-alpha.N` 或 `X.Y.Z-beta.N`。 |
+| `just set-version VERSION --app android` | 仅更新 Android 的 versionName 与 versionCode。新版本自动增加 versionCode；`--version-code N` 可为重构建指定更大编号。 |
+| `just check-version` | 检查桌面与 Android 的版本一致性，以及对应的英中文变更日志章节。 |
 | `just set-macos-signing signed` / `just set-macos-signing unsigned` | 配置 macOS 预发布签名；macOS 稳定版始终强制签名。 |
 | `just release-check` | 本地校验发布元数据、产物定义和 workflow 策略。 |
 | `just stage-cli-release` | 构建并归档当前平台 CLI。 |
 | `just build-tauri-release` | 构建当前平台 Tauri release 包。 |
 
-开发期间，将新变更记录在 `CHANGELOG.md` 和 `docs/zh/CHANGELOG.md` 的注释 `## Unreleased` 区域内。即使元数据仍指向已有版本，也不要把新工作追加到旧版本章节。准备发布时，执行 `just set-version VERSION`，将累计条目统一移入对应的新版本可见章节，并保留空的 Unreleased 注释模板，再运行 `just check-version` 与 `just release-check`。设置版本不会自动生成或搬移 changelog 内容、创建提交/tag 或发布 Release。Windows 没有签名开关：所有发布均采用 GitHub Artifact Attestation 与 SHA-256，无需 Authenticode 凭据。发布流水线必须保持无 ADB 调用，不得把签名 secret 写入源码，也不得为签名 job 增加未签名降级路径。
+开发期间，将桌面与 Web 的新变更记录在 `CHANGELOG.md` 和 `docs/zh/CHANGELOG.md` 的注释 `## Unreleased` 区域内，将 Android 变更记录在 `CHANGELOG-ANDROID.md` 和 `docs/zh/CHANGELOG-ANDROID.md`。即使元数据仍指向已有版本，也不要把新工作追加到旧版本章节。准备桌面发布时执行 `just set-version VERSION`；准备 Android 发布时执行 `just set-version VERSION --app android`。将累计条目统一移入对应的新版本可见章节，并保留空的 Unreleased 注释模板，再运行 `just check-version` 与 `just release-check`。设置版本不会自动生成或搬移 changelog 内容、创建提交/tag 或发布 Release。Windows 没有签名开关：所有发布均采用 GitHub Artifact Attestation 与 SHA-256，无需 Authenticode 凭据。发布流水线必须保持无 ADB 调用，不得把签名 secret 写入源码，也不得为签名 job 增加未签名降级路径。
 
 [English](../../CONTRIBUTING.md) | [中文](CONTRIBUTING.md)

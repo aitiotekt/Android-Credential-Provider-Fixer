@@ -5,30 +5,6 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
-- Load the standalone WebAuthn app with full-page navigation from both VitePress locale menus and Markdown links, avoiding a client-side documentation 404 on the first click.
-- Reorganize bilingual documentation around clear responsibilities: keep the README user-focused; move development, CLI, download-verification, repository-layout, release, and maintenance details into their owning guides; correct stale version, roadmap, and current-state descriptions.
-- Require PowerShell 7.5+ for Windows Just recipes and use shared `-CommandWithArgs` invocation to simplify Android development argument forwarding while preserving native exit codes.
-- Lead WebAuthn results with prominent success, failure, incomplete, timeout and cleared summaries before explanations; keep bilingual result announcements above the form.
-- Make the WebAuthn site a general-purpose tool with default username-based exploration and a switchable three-step guided mode. Pass the Android scene explicitly, scope return guidance to that scene, remove the one-hour session limit, and retain fresh challenges and per-operation deadlines for repeated authentication.
-- Temporarily limit WebAuthn browser checks to Chromium and Firefox until Playwright fixes Linux WebKit virtual-authenticator compatibility with SimpleWebAuthn; document the condition for restoring WebKit coverage without a project-specific shim.
-- Fix Android development script/test lint findings with explicit blocks and optional chaining; scope Turbo environment checks to exclude the directly invoked Android development script.
-- Use localhost for WebAuthn development and reject IP origins with an actionable message before credential creation, fixing Firefox's invalid-domain failure at 127.0.0.1.
-- Log original WebAuthn exceptions and the current test state to the browser console before mapping them to user-facing errors.
-- Make Playwright browser projects explicit and add `just test-web-firefox` for isolated Firefox WebAuthn workflow verification with virtual credentials.
-- Run Android development through platform-specific Unix/PowerShell recipes instead of an intermediate Node launcher, preserving argument boundaries, terminal I/O and native exit codes with isolated cross-platform CI tests.
-- Organize Just recipes by responsibility: keep WebAuthn development in dev.just, platform checks in quality.just, and synchronization/version-policy commands in maintenance.just without changing command behavior.
-- Publish the independent Android changelog from a root English source and mirrored language documents, with managed docsite links and bilingual navigation.
-- Upgrade Android build tooling to JDK 26, Gradle 9.7.1, AGP 9.4.0 and Kotlin/Compose 2.4.20 with built-in Kotlin; keep JVM target 17 and Android SDK compatibility unchanged.
-- Move the Android Gradle entry point and Wrapper to the repository root, with the `:webauthn-diagnosis` module, so Android Studio opens the full monorepo. Preserve application identity and independent versioning.
-- Add the WebAuthn Diagnosis Android companion and a static, memory-only WebAuthn test site with browser-local registration/signature verification and virtual-credential Playwright coverage.
-- Separate manually triggered Android signed-AAB/store publishing from desktop releases. Add independent Android versions/changelogs and `set-version --app`; keep Web package versions aligned with desktop.
-- Replace Docs deployment with one main-only Web deployment combining VitePress and `/webauthn/`; add default local Java/Gradle tooling with CI-specific selection. Real provider and Play acceptance remain manual.
-- Fix publication after intentionally skipped jobs; configure tagger identity, isolate platform inputs on reruns, use the actual Release run URL, revalidate downloaded/uploaded assets before publication, and fail the workflow if publication does not complete.
-- Fix Windows CLI ZIP creation with explicit PowerShell script parameters, require a nonempty archive before staging succeeds, and stop Windows release steps on native command failures.
-- Notarize and staple the final signed macOS DMG before validation and artifact staging; explicitly require Accepted notarization results for both DMG and CLI submissions.
-- Verify base tool executables during workspace setup after mise cache restoration and installation; reinstall a failed tool's configured version and require a successful recheck before installing dependencies. Rotate the mise cache namespace while retaining caching.
-- Temporarily remove third-party notice generation, packaging, release assets, and associated tooling. Keep the project LICENSE, checksums, manifest, and provenance attestations.
-
 Agents: append new changes here and mirror them in docs/zh/CHANGELOG.md.
 Do not append new work to an existing version section, even if metadata still names it.
 After running just set-version VERSION, move the accumulated entries into a new
@@ -37,76 +13,52 @@ work, then run just check-version and just release-check. set-version does not
 move changelog entries automatically.
 -->
 
+## 0.1.0-beta.2
+
+- Added the WebAuthn Diagnosis Android companion and a memory-only test site with browser-local registration and signature checks.
+- Made the WebAuthn site a general-purpose tool: username exploration, a three-step guided mode, Android-scene return hints, prominent result summaries, and no one-hour session limit. Development uses localhost so Firefox no longer fails at `127.0.0.1`.
+- Combined documentation and `/webauthn/` into one main-only Web deployment, opened the test app with a full page load from the docs site, and reorganized bilingual docs by responsibility.
+- Split Android signed-AAB/store publishing from desktop releases, with independent Android versions and changelogs. Android development uses native Unix/PowerShell Just recipes (PowerShell 7.5+).
+- Hardened publication: notarize and staple signed macOS DMGs, fail incomplete releases, and fix Windows CLI ZIP staging. Temporarily dropped generated third-party notices.
+- Limited WebAuthn browser tests to Chromium and Firefox until Playwright restores Linux WebKit virtual-authenticator support.
+
 ## 0.1.0-beta.1
 
-- Added discoverable `just set-version VERSION` and `just set-macos-signing POLICY` maintenance commands, with bilingual release-maintenance instructions.
-- Simplified Windows releases to GitHub Artifact Attestations and SHA-256 for all channels, including alpha/beta, and removed PFX credentials and Authenticode branches/configuration. macOS retains configurable prerelease signing and mandatory stable signing/notarization with protected approval. No updater or minisign key was introduced.
-- Separated build provenance from platform signatures in release notes; the manifest retains `signed: false` for Windows. Added release checks for unconditional attestations and gated assembly on successful platform builds.
-- Added a commented Unreleased section and contributor/agent rules to accumulate new changes before assigning them to a new version, preserving historical release entries.
+- Added `just set-version` and `just set-macos-signing`, plus an Unreleased changelog workflow for upcoming work.
+- Switched all Windows channels to GitHub Artifact Attestations and SHA-256; removed Authenticode and PFX credentials. macOS still has configurable prerelease signing and mandatory stable signing/notarization. Release notes distinguish provenance from platform signatures.
 
 ## 0.1.0-alpha.6
 
-- Added separate Tests, Release, and Docs workflows with least-privilege permissions and immutable action revisions.
-- Added project release metadata, strict stable/alpha/beta version policy, exact Tests-run/source-SHA validation, and idempotent tag and GitHub Release handling.
-- Added native CLI archives for macOS ARM64/x64, Windows x64, and Linux GNU ARM64/x64, plus Tauri DMGs for both macOS architectures and a Windows x64 NSIS installer.
-- Added explicit per-platform prerelease signing policy. Stable releases require protected approval, Developer ID signing and notarization on macOS, and timestamped Authenticode signing on Windows; signing failures never fall back to unsigned output.
-- Added deterministic staging, SHA-256 checksums, a schema-v1 release manifest, GitHub artifact attestations, and release notes derived from this changelog.
-- Added generated Rust and WebView third-party notices to CLI archives, Tauri release resources, and GitHub Release assets.
-- Added deployment of the bilingual VitePress site to `acp-fixer.aitiotekt.com` with sitemap, per-page canonical URLs, local search, and managed custom-domain configuration.
-- Kept npm/crates publishing, automatic updates, application stores, Linux GUI packages, MSI/MSIX, macOS universal binaries, and all CI/Release ADB activity out of scope.
+- Published native CLI archives (macOS ARM64/x64, Windows x64, Linux GNU ARM64/x64), Tauri DMGs for both macOS architectures, and a Windows x64 NSIS installer.
+- Added Tests, Release, and Docs workflows with versioned metadata, SHA-256 checksums, a schema-v1 manifest, GitHub attestations, changelog-derived notes, and generated third-party notices. Stable releases require protected approval; macOS requires Developer ID signing and notarization; Windows then required Authenticode.
+- Deployed the bilingual VitePress site to `acp-fixer.aitiotekt.com`.
+- Left npm/crates publishing, automatic updates, application stores, Linux GUI packages, and CI ADB out of scope.
 
 ## 0.1.0-alpha.5
 
-- Kept pnpm's default mise backend on primary platforms while using its official GitHub release asset only on Intel macOS, avoiding the Aqua registry's missing `darwin/amd64` mapping.
-- Replaced the desktop frontend's centralized page, IPC, and cross-view signal graph with `injection-js` domain services using explicit tokens, factory providers, and dependency lists without decorators or reflection metadata.
-- Implemented stateful application services as classes with constructor injection, private lifecycle state, and prototype methods; closure factories remain only at controller, adapter, and library construction boundaries.
-- Adopted TC39 Explicit Resource Management for frontend subscriptions and session scopes with idempotent `[Symbol.dispose]()`, lexical `using`, and `DisposableStack`-owned aggregate cleanup.
-- Unified Vite and Vitest behind a Solid-first `unplugin-swc` compatibility transform kept outside the bundled `src` graph. SWC lowers `using` and injects focused core-js polyfills from actual usage, while Vite retains the truthful final build target and Oxc minification without a parallel source transform.
-- Replaced the shared event bus with service-owned, exactly typed RxJS `DomainEvent<T>` Subjects. Downstream domain services receive read-only Observables, while rendering continues to consume only state and snapshots.
-- Made `WorkflowService.view` the only page source and split the UI into domain-oriented page containers and props-only presentation components.
-- Isolated each Live or Demo run in a disposable child Injector. The root does not provide a device gateway, and Demo can resolve only its deterministic fixture adapter.
-- Moved all Tauri `invoke` usage behind the live gateway adapter and added architecture checks for gateway, Injector, decorator, render-event, signal-ownership, and independent-navigation boundaries.
-- Rejects mismatched parent IDs as stable session errors, discards superseded asynchronous responses, consumes previews after plan creation, and prevents uncertain execution failures from leaving a replayable plan.
-- Split the English and Chinese message catalogs into independent sources while retaining recursive key-symmetry checks and localized entity lifecycle labels.
-- Moved frontend unit tests into module-level `__tests__/` directories and added an architecture check that prevents test files from being mixed with production sources.
-- Updated tutorial navigation to replay domain intentions for each target scene, including backward navigation and the full simulated change and restore lifecycle.
-- Made concrete Chrome, Edge, and Safari versions the single compatibility source of truth from which both Vite and SWC targets are derived; ECMAScript editions are no longer mixed into the runtime target set.
-- Guarded the global tutorial entry with an explicit Live/Demo replacement confirmation, plan cancellation, write-in-progress blocking, and initial Demo DOM readiness before Driver.js starts.
-- Moved Demo identity and Exit Demo into the session shell so the action remains available throughout setup, diagnosis, change, outcome, and snapshot views.
-- Rebuilt child-Injector UI consumers when the Session scope changes, ensuring tutorial switches and restarts begin on the first isolated Demo view instead of retaining the previous workflow screen.
-- Restored the guided snapshot and restore path after the single-provider change outcome, added the two omitted device-confirmation steps, and synchronized Driver progress with successful interactions on highlighted controls. The complete walkthrough now contains 24 steps; leaving through “Finish and diagnose again” dismisses the active tutorial cleanly.
-- Kept Tauri IPC, Core DTOs, CLI schema v2, and snapshot schema v2 compatible with alpha.4.
+- Rebuilt the desktop frontend around injected domain services, disposable Live/Demo session scopes, and explicit resource cleanup. Demo cannot reach live ADB.
+- Finished the guided Demo: confirm before replacing a session, keep Exit Demo in the shell, and cover pin plus snapshot restore.
+- Split English and Chinese message catalogs into independent sources. IPC, Core, CLI, and snapshot schema v2 stay compatible with alpha.4.
 
 ## 0.1.0-alpha.4
 
-- Rebuilt discoveries, ADB selections, device enumerations, diagnoses, previews, plans, executions, and snapshots as identity-bearing entities with typed opaque IDs and explicit parent relationships.
-- Added a revisioned backend session that rejects late asynchronous results and prevents Providers, previews, or plans from crossing diagnosis contexts.
-- Renamed diagnostic report `status` to `completeness` and upgraded GUI IPC, CLI JSON, and snapshot documents to schema v2.
-- Added explicit Preview, Plan, Execution, and Snapshot lifecycle states. Snapshots enter `executing` before a possible device write; cancellation, expiry, drift, and all execution outcomes are terminal and cannot be replayed.
-- Kept legacy v1 snapshot files untouched and reports them as unsupported inventory warnings; no migration is promised for early-development data.
-- Added a discriminated frontend workflow reducer and diagnosis resource states. Diagnosis results are shown only while their ID matches the latest session diagnosis; finishing an operation starts a new diagnosis instead of redisplaying stale data.
-- Demo fixtures use deterministic causal IDs and the same lifecycle projections while remaining isolated from live ADB IPC.
-- Rebased a persisted ADB choice onto each new discovery entity instead of presenting an expired selection as current; stale selections now return to an actionable candidate list.
-- Made device refreshes and diagnoses start new session revisions immediately, invalidating older asynchronous results, previews, and plans before they can overwrite the active context.
-- Localized application, execution, setting, and snapshot errors instead of exposing stable internal error codes in the desktop interface.
+- Modeled discoveries, selections, diagnoses, previews, plans, executions, and snapshots as identity-bearing entities. A revisioned session rejects late results and blocks reuse across diagnoses.
+- Upgraded GUI IPC, CLI JSON, and snapshots to schema v2. Writes persist `executing` first; cancellation, drift, and all outcomes are terminal. v1 snapshot files remain as unsupported warnings.
+- Showed a diagnosis only while it is the latest session diagnosis, rebased saved ADB selections onto new discoveries, and localized desktop errors instead of internal codes.
 
 ## 0.1.0-alpha.3
 
-- Rebuilt the desktop interface around Tailwind CSS 4, local Solid component primitives, a responsive five-stage progress model, and vertical long-value change previews.
-- Added a persisted System/Light/Dark appearance preference with live system-theme tracking and light/dark Driver.js styling; raised the macOS minimum to 13.3 and the web target to Safari 16.4.
-- Reworked English and Chinese user-facing copy and localized device, discovery, snapshot, blocker, and outcome states without exposing internal enum values.
-- Clarified diagnosis labels, marks an already-exclusive Provider as the disabled current state, and presents the selected ADB inside the deduplicated candidate list instead of a separate card.
-- Added explicit Provider selection, before/after previews, five-minute one-use plans, versioned atomic snapshots, Exclusive Provider Pin, read-back verification, automatic recovery, and guarded manual Restore.
-- Added dry-run-by-default `pin`, `snapshots`, and `restore` CLI commands; only `--apply` authorizes a device write.
-- Extended the isolated bilingual Demo through simulated Pin and Restore. Driver.js Next/Previous controls now drive the corresponding Solid demo scene across view boundaries, while direct highlighted-control interaction remains supported; the close control uses a high-contrast treatment.
-- Writes remain limited to `credential_service` and `credential_service_primary`; Autofill, Provider refresh, force-stop, WebAuthn launch, reports, and physical-device writes remain out of scope.
+- Added Exclusive Provider Pin and guarded Restore: explicit selection, before/after preview, five-minute one-use plans, atomic snapshots, read-back, and automatic recovery.
+- Added dry-run `pin`, `snapshots`, and `restore` CLI commands; only `--apply` writes the device.
+- Rebuilt the desktop UI with Tailwind CSS 4, a five-stage progress model, and a persisted light/dark appearance. macOS minimum is 13.3.
+- Localized user-facing copy without exposing internal enums, and extended Demo through simulated Pin and Restore.
+- Kept writes limited to `credential_service` and `credential_service_primary`.
 
 ## 0.1.0-alpha.2
 
-- Added read-only ADB discovery, validation, device enumeration, Android compatibility checks, foreground-user inspection, Credential Provider enumeration, and state diagnosis.
-- Added equivalent `devices`, `diagnose`, and `demo` CLI commands with interactive and JSON modes.
-- Added a bilingual desktop workflow, persisted ADB selection, conservative findings, and an isolated guided Demo based on an anonymized Xiaomi/HyperOS investigation.
-- Kept Android setting writes, snapshots, restore, report export, signing, and distribution out of scope.
+- Added read-only ADB discovery, device enumeration, compatibility checks, Credential Provider diagnosis, and matching `devices`, `diagnose`, and `demo` CLI commands.
+- Added a bilingual desktop workflow, persisted ADB selection, and an isolated guided Demo based on an anonymized Xiaomi/HyperOS investigation.
+- Left setting writes, snapshots, restore, and distribution out of scope.
 
 ## 0.1.0-alpha.1
 

@@ -14,7 +14,7 @@ just setup
 just verify
 ```
 
-Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev-docs` for documentation, and `just dev-web` for the WebAuthn website. `just dev-android` builds, installs and launches the debug Android app after explicit device selection; see the [development guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md#development-and-release) for noninteractive selection and watch mode. Code and code comments are written in English. User-facing documentation is maintained in matching `docs/en` and `docs/zh` files. Root `CHANGELOG.md` is the English source and `docs/zh/CHANGELOG.md` is the Chinese source.
+Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev-docs` for documentation, and `just dev-web` for the WebAuthn website. `just dev-android` builds, installs and launches the debug Android app after explicit device selection; see the [development guide](docs/en/005-WEBAUTHN-DIAGNOSIS.md#development-and-release) for noninteractive selection and watch mode. Code and code comments are written in English. User-facing documentation is maintained in matching `docs/en` and `docs/zh` files. Root `CHANGELOG.md` is the English desktop/Web source and `docs/zh/CHANGELOG.md` is the Chinese source. Android uses root `CHANGELOG-ANDROID.md` and `docs/zh/CHANGELOG-ANDROID.md`.
 
 ## Assets
 
@@ -53,13 +53,14 @@ Run `just sync-docs` after changing managed documentation aliases. The command r
 
 | Command | Purpose |
 | --- | --- |
-| `just set-version VERSION` | Update release metadata, root/app/docsite packages, Tauri configuration, Cargo workspace and lockfile. Accepts `X.Y.Z`, `X.Y.Z-alpha.N`, or `X.Y.Z-beta.N`. |
-| `just check-version` | Check version consistency and matching English/Chinese CHANGELOG sections. |
+| `just set-version VERSION` | Update desktop/CLI and Web package versions, release metadata, Tauri configuration, Cargo workspace and lockfile. Accepts `X.Y.Z`, `X.Y.Z-alpha.N`, or `X.Y.Z-beta.N`. |
+| `just set-version VERSION --app android` | Update only the Android versionName and versionCode. A new version increments versionCode; `--version-code N` requests a larger code for a rebuild. |
+| `just check-version` | Check version consistency and matching English/Chinese changelog sections for desktop and Android. |
 | `just set-macos-signing signed` / `just set-macos-signing unsigned` | Configure macOS prerelease signing; stable macOS releases always require signing. |
 | `just release-check` | Validate release metadata, artifact definitions, and workflow policy locally. |
 | `just stage-cli-release` | Build and archive the current platform's CLI. |
 | `just build-tauri-release` | Build the current platform's Tauri release bundle. |
 
-During development, record new entries inside the commented `## Unreleased` blocks in `CHANGELOG.md` and `docs/zh/CHANGELOG.md`. Do not append new work to an existing version section, even when metadata still names that version. When preparing a release, run `just set-version VERSION`, move the accumulated entries into matching new visible version sections, and retain the empty commented Unreleased templates. Then run `just check-version` and `just release-check`. Version setting does not generate or move changelog content, create a commit/tag, or publish a release. Windows has no signing toggle: every release uses GitHub Artifact Attestations and SHA-256 without Authenticode credentials. Release workflows must remain free of ADB calls. Do not add signing secrets to source files or unsigned fallback behavior to signed jobs.
+During development, record new entries inside the commented `## Unreleased` blocks in `CHANGELOG.md` and `docs/zh/CHANGELOG.md` for desktop and Web, and in `CHANGELOG-ANDROID.md` and `docs/zh/CHANGELOG-ANDROID.md` for Android. Do not append new work to an existing version section, even when metadata still names that version. When preparing a desktop release, run `just set-version VERSION`. When preparing an Android release, run `just set-version VERSION --app android`. Move the accumulated entries into matching new visible version sections, and retain the empty commented Unreleased templates. Then run `just check-version` and `just release-check`. Version setting does not generate or move changelog content, create a commit/tag, or publish a release. Windows has no signing toggle: every release uses GitHub Artifact Attestations and SHA-256 without Authenticode credentials. Release workflows must remain free of ADB calls. Do not add signing secrets to source files or unsigned fallback behavior to signed jobs.
 
 [English](CONTRIBUTING.md) | [中文](docs/zh/CONTRIBUTING.md)
