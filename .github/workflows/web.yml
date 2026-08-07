@@ -1,60 +1,17 @@
 name: Web
 
 on:
-  push:
-    branches: [main, release]
-    paths:
-      - "README.md"
-      - "SECURITY.md"
-      - "PRIVACY.md"
-      - "CONTRIBUTING.md"
-      - "CHANGELOG.md"
-      - "CHANGELOG-ANDROID.md"
-      - "LICENSE"
-      - "docs/**"
-      - "docsite/**"
-      - "apps/webauthn-web/**"
-      - "apps/tauri-app/config/**"
-      - "scripts/build-web.mts"
-      - "justfiles/**"
-      - "scripts/dev-cli.mts"
-      - "scripts/lib/**"
-      - "package.json"
-      - "acp-fixer-metadata.toml"
-      - "pnpm-lock.yaml"
-      - "mise*.toml"
-      - ".github/actions/setup-workspace/action.yml"
-      - ".github/workflows/web.yml"
-  pull_request:
-    paths:
-      - "README.md"
-      - "SECURITY.md"
-      - "PRIVACY.md"
-      - "CONTRIBUTING.md"
-      - "CHANGELOG.md"
-      - "CHANGELOG-ANDROID.md"
-      - "LICENSE"
-      - "docs/**"
-      - "docsite/**"
-      - "apps/webauthn-web/**"
-      - "apps/tauri-app/config/**"
-      - "scripts/build-web.mts"
-      - "justfiles/**"
-      - "scripts/dev-cli.mts"
-      - "scripts/lib/**"
-      - "package.json"
-      - "acp-fixer-metadata.toml"
-      - "pnpm-lock.yaml"
-      - "mise*.toml"
-      - ".github/actions/setup-workspace/action.yml"
-      - ".github/workflows/web.yml"
+  workflow_run:
+    workflows: [Tests]
+    branches: [main]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: web-${{ github.ref == 'refs/heads/main' && 'production' || github.ref }}
+  group: web-production
   cancel-in-progress: false
 
 env:
@@ -62,39 +19,51 @@ env:
 
 jobs:
   build:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')))
+    outputs:
+      should_deploy: ${{ steps.source.outputs.should_deploy }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
         with:
           include-docs: "true"
           cache-mode: read-write
           cache-key-suffix: web
-      - name: Check managed documentation
-        run: mise exec -- just check-docs
-      - name: Install virtual test browsers
-        run: mise exec -- pnpm --filter @aitiotekt/webauthn-web exec playwright install --with-deps chromium firefox
-      - name: Verify WebAuthn site
-        run: |
-          mise exec -- pnpm --filter @aitiotekt/webauthn-web typecheck
-          mise exec -- pnpm --filter @aitiotekt/webauthn-web test
-          mise exec -- pnpm --filter @aitiotekt/webauthn-web test:browser
+      - name: Validate deployment source
+        id: source
+        run: >-
+          mise exec -- node scripts/dev-cli.mts release web-source
+          --event-file="${GITHUB_EVENT_PATH}" --event-name="${GITHUB_EVENT_NAME}"
+          --workflow-ref="${GITHUB_REF}" --workflow-sha="${GITHUB_SHA}"
+          --repository="${GITHUB_REPOSITORY}" --format=github-output
       - name: Build both websites
+        if: steps.source.outputs.should_deploy == 'true'
         run: |
           mise exec -- just build-docs
           mise exec -- pnpm --filter @aitiotekt/webauthn-web build
       - name: Assemble one Pages site
+        if: steps.source.outputs.should_deploy == 'true'
         id: pages
         run: mise exec -- node scripts/build-web.mts
       - name: Upload Pages artifact
+        if: steps.source.outputs.should_deploy == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: ${{ steps.pages.outputs.path }}
 
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.build.outputs.should_deploy == 'true'
     needs: build
     runs-on: ubuntu-24.04
     permissions:

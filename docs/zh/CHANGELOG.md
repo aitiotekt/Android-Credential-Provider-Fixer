@@ -5,6 +5,8 @@
 <!--
 ## Unreleased
 
+- 将文档与 WebAuthn 验证集中到 Tests 流水线；Web 仅在 main 测试成功后或 main 手动运行时构建部署，锁定来源提交并跳过过期提交。
+
 Agent：新增变更统一记录在这里，并同步英文根 CHANGELOG.md。
 即使元数据仍指向已有版本，也不得把新工作追加到已有版本章节。
 执行 just set-version VERSION 后，将累计条目移入本注释下方新的可见版本章节

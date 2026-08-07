@@ -45,6 +45,7 @@ import {
 	setReleaseSigning,
 	setVersion,
 } from "./lib/release/version.mts";
+import { webSource } from "./lib/release/web.mts";
 import {
 	ensureReleaseTag,
 	releasePlan,
@@ -839,7 +840,7 @@ function checkArchitecture(): void {
 
 function usage(): never {
 	console.error(
-		"Usage: node scripts/dev-cli.mts android dev [--help] | docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|ensure-tag|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
+		"Usage: node scripts/dev-cli.mts android dev [--help] | docs <sync|check> | icons <sync|check> | version <check|set VERSION> | security check | architecture check | release <signing|preflight|plan|validate-ref|web-source|ensure-tag|stage-cli|stage-current-cli|stage-desktop|platform-report|manifest|verify-artifacts|verify-published|notes|check>",
 	);
 	process.exit(2);
 }
@@ -886,6 +887,23 @@ async function runRelease(
 			result,
 			format,
 			`Release preflight resolved ${result.expected_tag}.`,
+		);
+		return;
+	}
+	if (action === "web-source") {
+		const result = webSource({
+			eventFile: requiredOption(options, "event-file"),
+			eventName: requiredOption(options, "event-name"),
+			workflowRef: requiredOption(options, "workflow-ref"),
+			workflowSha: requiredOption(options, "workflow-sha"),
+			repository: requiredOption(options, "repository"),
+		});
+		emitResult(
+			result,
+			format,
+			result.should_deploy
+				? `Web deployment source: ${result.source_sha}.`
+				: "Web deployment skipped: main has advanced beyond this source.",
 		);
 		return;
 	}

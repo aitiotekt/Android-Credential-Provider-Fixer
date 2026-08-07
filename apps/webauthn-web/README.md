@@ -18,8 +18,8 @@ mise exec -- just build-web
 
 Playwright Credentials replaces create/get with a virtual authenticator in Chromium and Firefox. WebKit coverage is temporarily disabled until Playwright's Linux WebKit virtual authenticator passes SimpleWebAuthn's `PublicKeyCredential` constructor check without a project-specific shim. These tests validate the workflow and verification, not native OS/provider support. Real Google and Bitwarden checks require informed human interaction. The test fixture and keys are never included in the production graph.
 
-`test-web-firefox` runs only the Firefox project against a production preview. Stop `dev-web` first to free port 1430. The same Firefox project also runs in `check-web` and Web CI.
+`test-web-firefox` runs only the Firefox project against a production preview. Stop `dev-web` first to free port 1430. The same Firefox project also runs in `check-web` and Tests CI.
 
 Open local development at `http://localhost:1430/webauthn/`. IP origins such as `127.0.0.1` are rejected before starting a credential request because WebAuthn requires a valid domain for the RP ID.
 
-`build-web` stages both websites under a new `temp/web/pages-*` directory. Only main deploys to the production Pages environment; release and pull requests validate without deployment. Package versions follow desktop, not Android.
+`build-web` stages both websites under a new `temp/web/pages-*` directory. Tests CI validates documentation and WebAuthn. Successful Tests on main automatically trigger Web to build and deploy that exact commit; Web can also be run manually on main without an upstream Tests run. Runs skip deployment if their source is no longer the current main commit. Release branches and pull requests only run validation. Package versions follow desktop, not Android.

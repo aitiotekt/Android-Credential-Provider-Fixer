@@ -71,8 +71,12 @@ jobs:
         with:
           shared-key: acp-fixer-${{ runner.os }}-${{ runner.arch }}-debug
           cache-mode: read-write
+      - name: Install virtual WebAuthn browsers
+        run: mise exec -- pnpm --filter @aitiotekt/webauthn-web exec playwright install --with-deps chromium firefox
       - name: Verify workspace
         run: mise exec -- just verify
+      - name: Verify WebAuthn site
+        run: mise exec -- just check-web
 
   desktop-build:
     name: Desktop build (${{ matrix.name }})

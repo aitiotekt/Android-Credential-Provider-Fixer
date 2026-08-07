@@ -28,7 +28,9 @@ Android 工具链使用 JDK 26、Gradle 9.7.1、AGP 9.4.0 和 Kotlin/Compose 2.4
 
 `just set-version VERSION`（或 `--app default` / `--app desktop`）更新桌面、CLI 和 Web package 版本。`--app android` 仅更新 Android，新版本自动增加 versionCode；Android 重构建可用 `--version-code N` 显式指定更大编号。Android 独立维护双语变更日志，Web 变更仍进入根变更日志；命令不会自动搬移 Unreleased 内容。
 
-Web 流水线合并 VitePress 与 SPA 为一个 Pages 产物，仅 main 部署，release 和 PR 只验证。Android 流水线由维护者在 main/release 手动触发，默认 `build-only`，签名 AAB 在 Actions 保留 30 天，不发布 APK 或 Android GitHub Release。元数据 `internal` 策略在保存产物后上传 Play 内部测试；上传失败使任务失败，保留 AAB，不盲目重试可能已提交的发布。
+Tests 流水线构建文档并检查 WebAuthn，包括浏览器测试。main 上的 Tests 成功后，Web 流水线构建该次测试验证的确切提交，将 VitePress 与 SPA 合并为一个 Pages 产物并部署。Web 也允许在 main 手动运行，无需前置 Tests 运行。两种入口都会在来源提交不再是 main 当前提交时跳过部署。release 分支和 PR 仅运行验证。
+
+Android 流水线由维护者在 main/release 手动触发，默认 `build-only`，签名 AAB 在 Actions 保留 30 天，不发布 APK 或 Android GitHub Release。元数据 `internal` 策略在保存产物后上传 Play 内部测试；上传失败使任务失败，保留 AAB，不盲目重试可能已提交的发布。
 
 维护者需要配置 Play App Signing、上传密钥与受保护的 `android-release` Environment；API 上传另需最小授权的 Play 服务账号。首次 Console 初始化与上传、商店材料、隐私/Data safety 和账号相关测试条件仍需人工处理。仅商店分发不禁止开发者编译本地 debug APK，但不提供侧载分发渠道。
 

@@ -125,11 +125,55 @@ test("Web deploys only main; Android preserves AAB before an opt-in store upload
 			"utf8",
 		),
 	);
+	assert.deepEqual(Object.keys(web.on), ["workflow_run", "workflow_dispatch"]);
+	assert.deepEqual(web.on.workflow_run, {
+		workflows: ["Tests"],
+		branches: ["main"],
+		types: ["completed"],
+	});
+	assert.match(web.jobs.build.if, /github\.ref == 'refs\/heads\/main'/);
+	assert.match(web.jobs.build.if, /workflow_run\.conclusion == 'success'/);
+	assert.match(
+		web.jobs.build.if,
+		/head_repository\.full_name == github\.repository/,
+	);
+	assert.equal(
+		web.jobs.build.steps[0].with.ref,
+		`\${{ github.event.workflow_run.head_sha || github.sha }}`,
+	);
 	assert.equal(
 		web.jobs.deploy.if,
-		"github.event_name != 'pull_request' && github.ref == 'refs/heads/main'",
+		"github.ref == 'refs/heads/main' && needs.build.outputs.should_deploy == 'true'",
 	);
-	assert.deepEqual(web.on.push.branches, ["main", "release"]);
+	assert.equal(web.concurrency.group, "web-production");
+	const tests = parse(
+		readFileSync(
+			new URL("../../.github/workflows/tests.yml", import.meta.url),
+			"utf8",
+		),
+	);
+	const checks = tests.jobs.quality.steps.map(
+		(step: { run?: string }) => step.run ?? "",
+	);
+	assert.ok(checks.includes("mise exec -- just verify"));
+	assert.ok(checks.includes("mise exec -- just check-web"));
+	assert.ok(
+		checks.some((command: string) =>
+			command.includes("playwright install --with-deps chromium firefox"),
+		),
+	);
+	assert.ok(tests.jobs["tests-report"].needs.includes("quality"));
+	assert.ok(
+		!web.jobs.build.steps.some((step: { run?: string }) =>
+			/check-web|test:browser/.test(step.run ?? ""),
+		),
+	);
+	assert.ok(
+		web.jobs.build.steps.some(
+			(step: { id?: string; run?: string }) =>
+				step.id === "source" && step.run?.includes("release web-source"),
+		),
+	);
 	const android = parse(
 		readFileSync(
 			new URL("../../.github/workflows/android.yml", import.meta.url),
