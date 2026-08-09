@@ -5,14 +5,18 @@
 <!--
 ## Unreleased
 
-- 将文档与 WebAuthn 验证集中到 Tests 流水线；Web 仅在 main 测试成功后或 main 手动运行时构建部署，锁定来源提交并跳过过期提交。
-
 Agent：新增变更统一记录在这里，并同步英文根 CHANGELOG.md。
 即使元数据仍指向已有版本，也不得把新工作追加到已有版本章节。
 执行 just set-version VERSION 后，将累计条目移入本注释下方新的可见版本章节
 （标题为 ## VERSION）；保留这个空模板供后续使用，再运行 just check-version
 和 just release-check。set-version 不会自动搬移 changelog 条目。
 -->
+
+## 0.1.0-beta.3
+
+- 将桌面与文档站图标统一为 Android 的白底、青绿色与金色设计，以扳手表达修复、放大镜表达诊断；保留现有资源尺寸并重新编译 macOS Icon Composer 的 Assets.car 目录。
+- 图标同步现在会更新 Icon Composer 图稿并通过 Xcode 编译 Assets.car，跨平台检查可发现过期图稿；为文档站与 WebAuthn 网站添加对应的 favicon。
+- 将文档与 WebAuthn 验证集中到 Tests 流水线；Web 仅在 main 测试成功后或 main 手动运行时构建部署，锁定来源提交并跳过过期提交。
 
 ## 0.1.0-beta.2
 

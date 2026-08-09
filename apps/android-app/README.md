@@ -21,7 +21,11 @@ The second command runs JVM tests, Lint and debug compilation, not installation.
 
 On Android 14+, settings navigation first uses AndroidX CredentialManager's `createSettingsPendingIntent()` with this app's own identity. Older Android versions or unavailable/cancelled/blocked launches fall back to system settings and show manual search instructions. No third-party provider package or OEM activity is hardcoded. Returning from settings never confirms a configuration change; actual emulator/OEM page routing still needs device validation.
 
+The persistent Steps menu opens preparation, testing, and troubleshooting. Result/confirmation is available only for the current browser attempt or user-confirmed success. Choosing an earlier stage discards the app's previous attempt and result, without clearing browser data or deleting passkeys. System Back returns from result/help to testing, then preparation; Back on preparation retains the platform's exit behavior. Navigation and Back are reducer events, and each new state starts its content at the top.
+
 ## Store preparation
+
+Launcher and store artwork, upload-ready PNGs, and export instructions are in [artwork](artwork/README.md). Android uses its own white fingerprint-and-magnifier identity, with adaptive and Android 13 themed icons.
 
 1. Create the Play Console app and enable Play App Signing. Verify account contact details and the inactive-account notice separately.
 2. Keep the upload keystore backed up securely. In the protected `android-release` GitHub Environment (main/release refs only), configure `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.

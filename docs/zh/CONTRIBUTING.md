@@ -18,7 +18,7 @@ just verify
 
 ## 图标资源
 
-图标主文件为 `assets/icons/app-icon.png`（通用资源与 macOS Icon Composer 图稿）和 `assets/icons/app-icon-macos-legacy.png`（旧版 ICNS 所需的透明安全区域）。修改任一主文件后运行 `just sync-icons`。仓库结构与前端实现边界见[架构指南](001-ARCHITECTURE.md)。
+图标主文件为 `assets/icons/app-icon.png`（通用资源与 macOS Icon Composer 图稿）和 `assets/icons/app-icon-macos-legacy.png`（旧版 ICNS 所需的透明安全区域）。修改任一主文件后，在安装完整 Xcode 的 macOS 上运行 `just sync-icons`：命令也会更新 Icon Composer 图稿并重新编译 `apps/tauri-app/src-tauri/icons/Assets.car`。非标准 Xcode 安装路径可通过 `DEVELOPER_DIR` 指定；`just check-icons` 仍支持跨平台运行。保留现有图片尺寸以及白底、青绿色与金色设计；桌面／文档站使用扳手，Android／WebAuthn 使用放大镜。参见[图标源文件](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/assets/icons/README.md)与 [Android 素材导出](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/apps/android-app/artwork/README.md)。仓库结构与前端实现边界见[架构指南](001-ARCHITECTURE.md)。
 
 ## 文档职责
 

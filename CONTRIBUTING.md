@@ -18,7 +18,7 @@ Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, `just dev
 
 ## Assets
 
-The icon masters are `assets/icons/app-icon.png` for generic assets and macOS Icon Composer artwork, and `assets/icons/app-icon-macos-legacy.png` for the transparent safe zone used by the legacy ICNS. Run `just sync-icons` after changing either master. The [architecture guide](docs/en/001-ARCHITECTURE.md) contains the repository layout and frontend implementation boundaries.
+The icon masters are `assets/icons/app-icon.png` for generic assets and macOS Icon Composer artwork, and `assets/icons/app-icon-macos-legacy.png` for the transparent safe zone used by the legacy ICNS. Run `just sync-icons` on macOS with full Xcode after changing either master: it also updates Icon Composer artwork and recompiles `apps/tauri-app/src-tauri/icons/Assets.car`. Set `DEVELOPER_DIR` for a nonstandard Xcode installation. `just check-icons` remains cross-platform. Preserve existing image dimensions and the white, teal, and gold design; desktop/docs use a wrench, while Android/WebAuthn use a magnifier. See [icon sources](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/assets/icons/README.md) and [Android artwork exports](https://github.com/aitiotekt/Android-Credential-Provider-Fixer/blob/main/apps/android-app/artwork/README.md). The [architecture guide](docs/en/001-ARCHITECTURE.md) contains the repository layout and frontend implementation boundaries.
 
 ## Documentation responsibilities
 

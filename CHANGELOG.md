@@ -5,8 +5,6 @@ All notable project changes are recorded here. The project is pre-release softwa
 <!--
 ## Unreleased
 
-- Moved documentation and WebAuthn validation into Tests CI. Web deployment now follows successful main Tests or a manual main run, builds the exact source commit, and skips obsolete commits.
-
 Agents: append new changes here and mirror them in docs/zh/CHANGELOG.md.
 Do not append new work to an existing version section, even if metadata still names it.
 After running just set-version VERSION, move the accumulated entries into a new
@@ -14,6 +12,12 @@ visible ## VERSION section below this comment. Keep this empty template for futu
 work, then run just check-version and just release-check. set-version does not
 move changelog entries automatically.
 -->
+
+## 0.1.0-beta.3
+
+- Unified desktop and documentation icons with the Android white, teal, and gold design, using a wrench for repair and a magnifier for diagnosis. Preserved existing resource dimensions and rebuilt the macOS Icon Composer Assets.car catalog.
+- Made icon synchronization update Icon Composer artwork and compile Assets.car with Xcode, with cross-platform stale-source checks. Added matching documentation and WebAuthn favicons.
+- Moved documentation and WebAuthn validation into Tests CI. Web deployment now follows successful main Tests or a manual main run, builds the exact source commit, and skips obsolete commits.
 
 ## 0.1.0-beta.2
 

@@ -110,6 +110,7 @@ export default defineConfig({
 	title: "Android Credential Provider Fixer",
 	description: "Local-first diagnostics for Android Credential Provider state.",
 	base: "/",
+	head: [["link", { rel: "icon", type: "image/png", href: "/icon.png" }]],
 	// This route is supplied by the separately built SPA in the Pages assembly.
 	ignoreDeadLinks: [/^\/webauthn\/(?:index)?$/],
 	cleanUrls: true,

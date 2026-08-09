@@ -1,5 +1,7 @@
 # WebAuthn test website
 
+The favicon shares Android's white, teal, and gold fingerprint-and-magnifier icon through a managed public-asset link. Run `just sync-docs` to restore the link; [Android artwork](../android-app/artwork/README.md) owns the export. Desktop and documentation use the matching wrench variant.
+
 Static Solid 2 / Tailwind 4 SPA, deployed at `/webauthn/` together with VitePress by **Web**. No server, cookies, analytics, application storage or WebAuthn response uploads. Browser memory holds the current username, test identity, challenge and public key. There is no session lifetime timer; each operation retains a five-minute deadline. Refresh/clear discards these; the password manager's real test credential must be removed separately.
 
 Without a recognized scene, the site defaults to Explore mode: enter a username and register/authenticate in one view, including repeated authentication with fresh challenges and updated signature counters. Editing the username clears the previous local registration. The Android app supplies `?scene=webauthn-diagnosis-android-app`, defaulting to Guided mode (create → verify → complete) and enabling Android return instructions. Unknown scene values behave like a generic visit. The toolbar switches modes without discarding the current test; switching is disabled during operations.

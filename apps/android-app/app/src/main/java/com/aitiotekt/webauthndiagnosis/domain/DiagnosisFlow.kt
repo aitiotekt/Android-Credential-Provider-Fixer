@@ -10,6 +10,8 @@ sealed interface DiagnosisState {
 }
 
 sealed interface DiagnosisEvent {
+    data class Navigate(val destination: DiagnosisDestination) : DiagnosisEvent
+    data object Back : DiagnosisEvent
     data object Continue : DiagnosisEvent
     data class BrowserOpened(val attemptId: String) : DiagnosisEvent
     data object LeftActivity : DiagnosisEvent
@@ -21,7 +23,30 @@ sealed interface DiagnosisEvent {
     data object Finish : DiagnosisEvent
 }
 
+enum class DiagnosisDestination { Preparation, Test, Result, Troubleshooting }
+
+fun DiagnosisState.destination(): DiagnosisDestination = when (this) {
+    DiagnosisState.Preparation -> DiagnosisDestination.Preparation
+    DiagnosisState.TestReady -> DiagnosisDestination.Test
+    is DiagnosisState.External, is DiagnosisState.AwaitingConfirmation, DiagnosisState.UserReportedSuccess -> DiagnosisDestination.Result
+    DiagnosisState.Troubleshooting -> DiagnosisDestination.Troubleshooting
+}
+
+fun DiagnosisState.canNavigate(destination: DiagnosisDestination): Boolean =
+    destination != DiagnosisDestination.Result || this.destination() == DiagnosisDestination.Result
+
 fun transition(state: DiagnosisState, event: DiagnosisEvent): DiagnosisState = when (event) {
+    is DiagnosisEvent.Navigate -> when {
+        !state.canNavigate(event.destination) || state.destination() == event.destination -> state
+        event.destination == DiagnosisDestination.Preparation -> DiagnosisState.Preparation
+        event.destination == DiagnosisDestination.Test -> DiagnosisState.TestReady
+        event.destination == DiagnosisDestination.Troubleshooting -> DiagnosisState.Troubleshooting
+        else -> state
+    }
+    DiagnosisEvent.Back -> when (state) {
+        DiagnosisState.Preparation, DiagnosisState.TestReady -> DiagnosisState.Preparation
+        else -> DiagnosisState.TestReady
+    }
     DiagnosisEvent.Continue -> if (state == DiagnosisState.Preparation) DiagnosisState.TestReady else state
     is DiagnosisEvent.BrowserOpened -> if (state == DiagnosisState.TestReady && event.attemptId.isNotBlank()) DiagnosisState.External(event.attemptId) else state
     DiagnosisEvent.LeftActivity -> if (state is DiagnosisState.External) state.copy(leftActivity = true) else state

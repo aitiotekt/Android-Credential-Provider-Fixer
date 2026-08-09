@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">WebAuthn 诊断</string>
+    <string name="steps_menu">步骤</string>
+    <string name="result_step">结果与确认</string>
+    <string name="current_step">当前</string>
     <string name="preparation">准备测试</string>
     <string name="android_version">Android %1$s · API %2$d</string>
     <string name="support_modern">Android 14 及以上可支持第三方凭据提供方，具体行为仍取决于设备、浏览器与密码管理器。</string>

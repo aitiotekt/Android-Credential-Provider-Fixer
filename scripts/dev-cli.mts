@@ -14,7 +14,6 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { runAndroidDev } from "./lib/android-dev.mts";
 import {
@@ -70,6 +69,7 @@ const macosLegacyIconSource = "assets/icons/app-icon-macos-legacy.png";
 const generatedIconDirectory = "apps/tauri-app/src-tauri/icons";
 const iconManifest = `${generatedIconDirectory}/.sources.json`;
 const frontendIcon = "apps/tauri-app/public/app-icon.png";
+const iconComposerDirectory = `${generatedIconDirectory}/AppIcon.icon`;
 const conventionDocumentNames = [
 	"README.md",
 	"SECURITY.md",
@@ -123,6 +123,11 @@ const linkEntries: LinkEntry[] = [
 	{
 		link: "docsite/public/icon.png",
 		target: "assets/icons/app-icon.png",
+		type: "file",
+	},
+	{
+		link: "apps/webauthn-web/public/icon.png",
+		target: "apps/android-app/artwork/google-play-icon.png",
 		type: "file",
 	},
 ];
@@ -304,7 +309,9 @@ function withGeneratedIconSets(
 	stdio: "inherit" | "ignore",
 	action: (genericDirectory: string, macosLegacyDirectory: string) => void,
 ): void {
-	const workDirectory = mkdtempSync(join(tmpdir(), "acp-fixer-icons-"));
+	const temporaryRoot = resolve(repoRoot, "temp");
+	mkdirSync(temporaryRoot, { recursive: true });
+	const workDirectory = mkdtempSync(join(temporaryRoot, "icons-"));
 	const genericDirectory = resolve(workDirectory, "generic");
 	const macosLegacyDirectory = resolve(workDirectory, "macos-legacy");
 	try {
@@ -367,12 +374,72 @@ function iconManifestContents(): string {
 	)}\n`;
 }
 
+function iconCompilerEnvironment(): NodeJS.ProcessEnv {
+	if (process.platform !== "darwin") {
+		throw new Error(
+			"Icon synchronization requires macOS and full Xcode to compile Assets.car. Icon checks remain cross-platform.",
+		);
+	}
+	const environment = { ...process.env };
+	try {
+		execFileSync("xcrun", ["--find", "actool"], {
+			env: environment,
+			stdio: "ignore",
+		});
+	} catch {
+		const bundledDeveloperDirectory =
+			"/Applications/Xcode.app/Contents/Developer";
+		if (
+			environment.DEVELOPER_DIR ||
+			!existsSync(join(bundledDeveloperDirectory, "usr/bin/actool"))
+		) {
+			throw new Error(
+				"Set DEVELOPER_DIR to a full Xcode Developer directory before synchronizing icons.",
+			);
+		}
+		environment.DEVELOPER_DIR = bundledDeveloperDirectory;
+	}
+	return environment;
+}
+
 function syncIcons(): void {
 	assertIconMaster(genericIconSource, false);
 	assertIconMaster(macosLegacyIconSource, true);
+	const compilerEnvironment = iconCompilerEnvironment();
 	const destination = resolve(repoRoot, generatedIconDirectory);
+	copyFileSync(
+		resolve(repoRoot, genericIconSource),
+		resolve(repoRoot, iconComposerDirectory, "Assets/app-icon.png"),
+	);
 
 	withGeneratedIconSets("inherit", (genericDirectory, macosLegacyDirectory) => {
+		const compiledDirectory = join(dirname(genericDirectory), "compiled");
+		mkdirSync(compiledDirectory);
+		const tauriConfig = readJson<{
+			bundle: { macOS: { minimumSystemVersion: string } };
+		}>("apps/tauri-app/src-tauri/tauri.conf.json");
+		execFileSync(
+			"xcrun",
+			[
+				"actool",
+				resolve(repoRoot, iconComposerDirectory),
+				"--compile",
+				compiledDirectory,
+				"--platform",
+				"macosx",
+				"--minimum-deployment-target",
+				tauriConfig.bundle.macOS.minimumSystemVersion,
+				"--target-device",
+				"mac",
+				"--app-icon",
+				"AppIcon",
+				"--output-partial-info-plist",
+				join(compiledDirectory, "icon-info.plist"),
+				"--output-format",
+				"human-readable-text",
+			],
+			{ cwd: repoRoot, env: compilerEnvironment, stdio: "inherit" },
+		);
 		for (const relativePath of relativeFilesUnder(genericDirectory)) {
 			if (relativePath === "icon.icns") {
 				continue;
@@ -385,18 +452,35 @@ function syncIcons(): void {
 			resolve(macosLegacyDirectory, "icon.icns"),
 			resolve(destination, "icon.icns"),
 		);
+		copyFileSync(
+			join(compiledDirectory, "Assets.car"),
+			join(destination, "Assets.car"),
+		);
 	});
 	copyFileSync(
 		resolve(repoRoot, genericIconSource),
 		resolve(repoRoot, frontendIcon),
 	);
 	writeFileSync(resolve(repoRoot, iconManifest), iconManifestContents());
-	console.log("Synchronized generic icons and the macOS legacy ICNS asset.");
+	console.log(
+		"Synchronized generic icons, macOS legacy ICNS, and compiled Icon Composer Assets.car.",
+	);
 }
 
 function checkIcons(): void {
 	assertIconMaster(genericIconSource, false);
 	assertIconMaster(macosLegacyIconSource, true);
+	if (
+		!readFileSync(resolve(repoRoot, genericIconSource)).equals(
+			readFileSync(
+				resolve(repoRoot, iconComposerDirectory, "Assets/app-icon.png"),
+			),
+		)
+	) {
+		throw new Error(
+			"Icon Composer artwork is stale. Run just sync-icons on macOS with Xcode.",
+		);
+	}
 	const checkedInIcns = readFileSync(
 		resolve(repoRoot, `${generatedIconDirectory}/icon.icns`),
 	);

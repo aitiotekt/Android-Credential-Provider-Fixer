@@ -1,7 +1,7 @@
 schema_version = 1
 
 [project]
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 display_name = "Android Credential Provider Fixer"
 binary_name = "acp-fixer"
 identifier = "com.aitiotekt.acp-fixer"
@@ -9,8 +9,8 @@ repository_url = "https://github.com/aitiotekt/Android-Credential-Provider-Fixer
 docs_url = "https://acp-fixer.aitiotekt.com/"
 
 [android]
-version = "0.1.0-beta.1"
-version_code = 2
+version = "0.1.0-beta.2"
+version_code = 3
 display_name = "WebAuthn Diagnosis"
 display_name_zh = "WebAuthn 诊断"
 identifier = "com.aitiotekt.webauthndiagnosis"

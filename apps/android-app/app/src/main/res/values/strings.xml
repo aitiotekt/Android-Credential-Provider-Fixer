@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">WebAuthn Diagnosis</string>
+    <string name="steps_menu">Steps</string>
+    <string name="result_step">Result and confirmation</string>
+    <string name="current_step">Current</string>
     <string name="preparation">Prepare your test</string>
     <string name="android_version">Android %1$s · API %2$d</string>
     <string name="support_modern">Android 14+ can support third-party credential providers. Actual behavior depends on the device, browser and password manager.</string>
