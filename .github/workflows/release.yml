@@ -481,7 +481,7 @@ jobs:
           mise exec -- node scripts/dev-cli.mts release verify-artifacts --manifest=temp/release/final/release-manifest.json
           mise exec -- node scripts/dev-cli.mts release notes --manifest=temp/release/final/release-manifest.json --output=temp/release/final/RELEASE_NOTES.md
       - name: Attest final downloads
-        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: |
             temp/release/final/*.dmg
