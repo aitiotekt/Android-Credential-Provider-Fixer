@@ -48,7 +48,7 @@ jobs:
       requires_stable_approval: ${{ steps.plan.outputs.requires_stable_approval }}
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_sha }}
           fetch-depth: 0
@@ -89,7 +89,7 @@ jobs:
       MISE_ENV: ci,release
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Setup release tools
@@ -129,7 +129,7 @@ jobs:
       APPLE_SIGNING_IDENTITY: "-"
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Setup workspace
@@ -202,7 +202,7 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Import Developer ID certificate
@@ -276,7 +276,7 @@ jobs:
     runs-on: windows-2025
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Setup workspace
@@ -331,7 +331,7 @@ jobs:
       WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Setup workspace
@@ -401,7 +401,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Setup workspace
@@ -454,7 +454,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
       - name: Setup workspace
@@ -504,7 +504,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-plan.outputs.source_sha }}
           fetch-depth: 0
