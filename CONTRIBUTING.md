@@ -29,6 +29,18 @@ Use `just dev` for the desktop app, `just dev-cli --help` for the CLI, and `just
 
 Run `just sync-docs` after changing managed documentation aliases. The command refuses to overwrite ordinary files. Before submitting changes, run `just format`, `just verify`, and `just release-check`.
 
-`acp-fixer-metadata.toml` is the release metadata source of truth. Use `node scripts/dev-cli.mts version set VERSION` to update managed manifests and then write matching English and Chinese CHANGELOG sections. Release workflows must remain free of ADB calls. Do not add signing secrets to source files or unsigned fallback behavior to signed jobs.
+`acp-fixer-metadata.toml` is the release metadata source of truth. Discover maintenance commands with `just --list`. Run them through `mise exec -- just ...` when the mise toolchain is not already active.
+
+| Command | Purpose |
+| --- | --- |
+| `just set-version VERSION` | Update release metadata, root/app/docsite packages, Tauri configuration, Cargo workspace and lockfile. Accepts `X.Y.Z`, `X.Y.Z-alpha.N`, or `X.Y.Z-beta.N`. |
+| `just check-version` | Check version consistency and matching English/Chinese CHANGELOG sections. |
+| `just set-macos-signing signed` / `just set-macos-signing unsigned` | Configure macOS prerelease signing; stable macOS releases always require signing. |
+| `just release-check` | Validate release metadata, artifact definitions, and workflow policy locally. |
+| `just release-notices` | Generate third-party notices under `temp/release/`. |
+| `just stage-cli-release` | Build and archive the current platform's CLI with notices. |
+| `just build-tauri-release` | Build the current platform's Tauri release bundle with notices. |
+
+During development, record new entries inside the commented `## Unreleased` blocks in `CHANGELOG.md` and `docs/zh/CHANGELOG.md`. Do not append new work to an existing version section, even when metadata still names that version. When preparing a release, run `just set-version VERSION`, move the accumulated entries into matching new visible version sections, and retain the empty commented Unreleased templates. Then run `just check-version` and `just release-check`. Version setting does not generate or move changelog content, create a commit/tag, or publish a release. Windows has no signing toggle: every release uses GitHub Artifact Attestations and SHA-256 without Authenticode credentials. Release workflows must remain free of ADB calls. Do not add signing secrets to source files or unsigned fallback behavior to signed jobs.
 
 [English](CONTRIBUTING.md) | [中文](docs/zh/CONTRIBUTING.md)

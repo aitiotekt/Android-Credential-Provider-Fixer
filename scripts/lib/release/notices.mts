@@ -137,11 +137,7 @@ export function generateNotices(outputDirectory: string): {
 	return { cli, gui };
 }
 
-export function writeTauriReleaseConfig(
-	notices: string,
-	output: string,
-	windowsSigning?: { certificateThumbprint: string; timestampUrl: string },
-): void {
+export function writeTauriReleaseConfig(notices: string, output: string): void {
 	const noticeSource = resolve(REPO_ROOT, notices);
 	if (!existsSync(noticeSource)) {
 		throw new Error(`GUI notices file is missing: ${notices}.`);
@@ -167,15 +163,6 @@ export function writeTauriReleaseConfig(
 							resource,
 						)]: "THIRD_PARTY_NOTICES.html",
 					},
-					...(windowsSigning
-						? {
-								windows: {
-									certificateThumbprint: windowsSigning.certificateThumbprint,
-									digestAlgorithm: "sha256",
-									timestampUrl: windowsSigning.timestampUrl,
-								},
-							}
-						: {}),
 				},
 			},
 			null,

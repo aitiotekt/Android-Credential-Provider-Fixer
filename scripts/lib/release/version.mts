@@ -166,25 +166,25 @@ export function setVersion(version: string): { version: string } {
 	return { version };
 }
 
-export function setPrereleaseSigning(
-	platform: "macos" | "windows",
+export function setReleaseSigning(
+	platform: "macos",
 	policy: SigningPolicy,
-): { platform: "macos" | "windows"; policy: SigningPolicy } {
+): { platform: "macos"; policy: SigningPolicy } {
 	const metadata = loadMetadata();
 	if (
 		!parseReleaseVersion(metadata.project.version).isPrerelease &&
 		policy === "unsigned"
 	) {
 		throw new Error(
-			"Stable releases cannot select unsigned platform artifacts.",
+			"Stable macOS releases cannot select unsigned platform artifacts.",
 		);
 	}
 	const source = readFileSync(METADATA_PATH, "utf8");
-	const section = "[release.prerelease_signing]";
+	const section = "[release.signing]";
 	const sectionStart = source.indexOf(section);
 	const sectionEnd = source.indexOf("\n[", sectionStart + section.length);
 	if (sectionStart === -1) {
-		throw new Error("Missing release.prerelease_signing section.");
+		throw new Error("Missing release.signing section.");
 	}
 	const prefix = source.slice(0, sectionStart);
 	const body = source.slice(

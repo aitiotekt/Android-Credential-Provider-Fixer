@@ -44,7 +44,6 @@ jobs:
       expected_tag: ${{ steps.plan.outputs.expected_tag }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
       macos_signing: ${{ steps.plan.outputs.macos_signing }}
-      windows_signing: ${{ steps.plan.outputs.windows_signing }}
       requires_stable_approval: ${{ steps.plan.outputs.requires_stable_approval }}
     steps:
       - name: Checkout exact source
@@ -267,11 +266,11 @@ jobs:
           name: release-macos-${{ matrix.target }}
           path: temp/release/platform
 
-  windows-unsigned:
+  windows:
     if: >-
       always() && needs.release-plan.result == 'success' &&
       needs.notices.result == 'success' &&
-      needs.release-plan.outputs.windows_signing == 'unsigned'
+      (needs.release-plan.outputs.requires_stable_approval != 'true' || needs.stable-approval.result == 'success')
     needs: [release-plan, stable-approval, notices]
     runs-on: windows-2025
     steps:
@@ -311,78 +310,6 @@ jobs:
           mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/desktop-x86_64-pc-windows-msvc.report.json --file-name="android-credential-provider-fixer-v${env:VERSION}-x86_64-pc-windows-msvc-setup.exe" --kind=desktop --target=x86_64-pc-windows-msvc --signed=false --notarized=false
           mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/cli-x86_64-pc-windows-msvc.report.json --file-name="acp-fixer-v${env:VERSION}-x86_64-pc-windows-msvc.zip" --kind=cli --target=x86_64-pc-windows-msvc --signed=false --notarized=false
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: release-windows-x86_64-pc-windows-msvc
-          path: temp/release/platform
-
-  windows-signed:
-    if: >-
-      always() && needs.release-plan.result == 'success' &&
-      needs.notices.result == 'success' &&
-      needs.release-plan.outputs.windows_signing == 'signed' &&
-      (needs.release-plan.outputs.requires_stable_approval != 'true' || needs.stable-approval.result == 'success')
-    needs: [release-plan, stable-approval, notices]
-    runs-on: windows-2025
-    environment: release-signing
-    env:
-      WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
-      WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
-      WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ needs.release-plan.outputs.source_sha }}
-      - name: Setup workspace
-        uses: ./.github/actions/setup-workspace
-        with:
-          cache-mode: read-only
-          cache-key-suffix: release
-      - name: Setup Rust cache
-        uses: ./.github/actions/setup-rust-cache
-        with:
-          shared-key: acp-fixer-x86_64-pc-windows-msvc-release
-          cache-mode: read-write
-      - name: Download notices
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notices
-          path: temp/release/notices
-      - name: Import Authenticode certificate
-        id: certificate
-        shell: pwsh
-        run: |
-          if (-not $env:WINDOWS_PFX_BASE64 -or -not $env:WINDOWS_PFX_PASSWORD -or -not $env:WINDOWS_TIMESTAMP_URL) { throw "Windows signing configuration is incomplete." }
-          $path = Join-Path $env:RUNNER_TEMP signing.pfx
-          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
-          $password = ConvertTo-SecureString $env:WINDOWS_PFX_PASSWORD -AsPlainText -Force
-          $certificate = Import-PfxCertificate -FilePath $path -CertStoreLocation Cert:\CurrentUser\My -Password $password
-          if (-not $certificate.Thumbprint) { throw "No signing certificate was imported." }
-          "thumbprint=$($certificate.Thumbprint)" >> $env:GITHUB_OUTPUT
-          Remove-Item $path -Force
-      - name: Build, sign, and stage Windows artifacts
-        shell: pwsh
-        env:
-          VERSION: ${{ needs.release-plan.outputs.version }}
-          CERTIFICATE_THUMBPRINT: ${{ steps.certificate.outputs.thumbprint }}
-        run: |
-          mise exec -- node scripts/dev-cli.mts release tauri-config --notices=temp/release/notices/THIRD_PARTY_NOTICES-GUI.html --output=apps/tauri-app/src-tauri/target/release-resources/tauri.release.json --certificate-thumbprint="$env:CERTIFICATE_THUMBPRINT" --timestamp-url="$env:WINDOWS_TIMESTAMP_URL"
-          mise exec -- pnpm --filter @aitiotekt/acp-fixer-tauri-app tauri build --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/target/release-resources/tauri.release.json
-          mise exec -- cargo build --release --target x86_64-pc-windows-msvc -p acp-fixer-cli
-          $cli = Resolve-Path target/x86_64-pc-windows-msvc/release/acp-fixer.exe
-          signtool.exe sign /fd SHA256 /td SHA256 /tr "$env:WINDOWS_TIMESTAMP_URL" /sha1 "$env:CERTIFICATE_THUMBPRINT" "$cli"
-          signtool.exe verify /pa /all /v "$cli"
-          & $cli --version
-          & $cli demo --json | Out-Null
-          $installer = Get-ChildItem target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe | Select-Object -First 1
-          if (-not $installer) { throw "NSIS installer was not produced." }
-          signtool.exe verify /pa /all /v $installer.FullName
-          mise exec -- node scripts/dev-cli.mts release stage-desktop --target=x86_64-pc-windows-msvc --source="$($installer.FullName)" --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release stage-cli --target=x86_64-pc-windows-msvc --binary="$cli" --notices=temp/release/notices/THIRD_PARTY_NOTICES-CLI.html --output-directory=temp/release/platform
-          mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/desktop-x86_64-pc-windows-msvc.report.json --file-name="android-credential-provider-fixer-v${env:VERSION}-x86_64-pc-windows-msvc-setup.exe" --kind=desktop --target=x86_64-pc-windows-msvc --signed=true --notarized=false
-          mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/cli-x86_64-pc-windows-msvc.report.json --file-name="acp-fixer-v${env:VERSION}-x86_64-pc-windows-msvc.zip" --kind=cli --target=x86_64-pc-windows-msvc --signed=true --notarized=false
-      - name: Upload signed Windows artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-windows-x86_64-pc-windows-msvc
@@ -438,14 +365,16 @@ jobs:
           path: temp/release/platform
 
   assemble:
-    if: always() && needs.release-plan.result == 'success' && needs.notices.result == 'success'
+    if: >-
+      always() && needs.release-plan.result == 'success' && needs.notices.result == 'success' &&
+      needs.windows.result == 'success' && needs.linux-cli.result == 'success' &&
+      (needs.macos-signed.result == 'success' || needs.macos-unsigned.result == 'success')
     needs:
       - release-plan
       - notices
       - macos-unsigned
       - macos-signed
-      - windows-unsigned
-      - windows-signed
+      - windows
       - linux-cli
     runs-on: ubuntu-24.04
     permissions:
@@ -476,8 +405,7 @@ jobs:
             --source-ref="${{ needs.release-plan.outputs.source_ref }}" \
             --source-sha="${{ needs.release-plan.outputs.source_sha }}" \
             --run-url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${{ needs.release-plan.outputs.tests_run_id }}" \
-            --macos-signing="${{ needs.release-plan.outputs.macos_signing }}" \
-            --windows-signing="${{ needs.release-plan.outputs.windows_signing }}"
+            --macos-signing="${{ needs.release-plan.outputs.macos_signing }}"
           mise exec -- node scripts/dev-cli.mts release verify-artifacts --manifest=temp/release/final/release-manifest.json
           mise exec -- node scripts/dev-cli.mts release notes --manifest=temp/release/final/release-manifest.json --output=temp/release/final/RELEASE_NOTES.md
       - name: Attest final downloads
