@@ -96,9 +96,13 @@ jobs:
         with:
           cache-mode: read-only
           cache-key-suffix: release
+      - name: Ensure release license tool is available
+        run: |
+          mise --env ci,release install cargo:cargo-about
+          mise --env ci,release exec -- cargo-about --version
       - name: Generate third-party notices
         run: >-
-          mise exec -- node scripts/dev-cli.mts release notices
+          mise --env ci,release exec -- node scripts/dev-cli.mts release notices
           --output-directory=temp/release/notices
       - name: Upload notices
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
