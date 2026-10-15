@@ -133,7 +133,7 @@ jobs:
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/desktop-${{ matrix.target }}.report.json" --file-name="android-credential-provider-fixer-v${VERSION}-${{ matrix.target }}.dmg" --kind=desktop --target="${{ matrix.target }}" --signed=false --notarized=false
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/cli-${{ matrix.target }}.report.json" --file-name="acp-fixer-v${VERSION}-${{ matrix.target }}.tar.gz" --kind=cli --target="${{ matrix.target }}" --signed=false --notarized=false
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-macos-${{ matrix.target }}
           path: temp/release/platform
@@ -222,7 +222,7 @@ jobs:
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/desktop-${{ matrix.target }}.report.json" --file-name="android-credential-provider-fixer-v${VERSION}-${{ matrix.target }}.dmg" --kind=desktop --target="${{ matrix.target }}" --signed=true --notarized=true
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/cli-${{ matrix.target }}.report.json" --file-name="acp-fixer-v${VERSION}-${{ matrix.target }}.tar.gz" --kind=cli --target="${{ matrix.target }}" --signed=true --notarized=true
       - name: Upload signed macOS artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-macos-${{ matrix.target }}
           path: temp/release/platform
@@ -268,7 +268,7 @@ jobs:
           mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/desktop-x86_64-pc-windows-msvc.report.json --file-name="android-credential-provider-fixer-v${env:VERSION}-x86_64-pc-windows-msvc-setup.exe" --kind=desktop --target=x86_64-pc-windows-msvc --signed=false --notarized=false
           mise exec -- node scripts/dev-cli.mts release platform-report --output=temp/release/platform/cli-x86_64-pc-windows-msvc.report.json --file-name="acp-fixer-v${env:VERSION}-x86_64-pc-windows-msvc.zip" --kind=cli --target=x86_64-pc-windows-msvc --signed=false --notarized=false
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-windows-x86_64-pc-windows-msvc
           path: temp/release/platform
@@ -314,7 +314,7 @@ jobs:
           mise exec -- node scripts/dev-cli.mts release stage-cli --target="${{ matrix.target }}" --binary="target/${{ matrix.target }}/release/acp-fixer" --output-directory=temp/release/platform
           mise exec -- node scripts/dev-cli.mts release platform-report --output="temp/release/platform/cli-${{ matrix.target }}.report.json" --file-name="acp-fixer-v${VERSION}-${{ matrix.target }}.tar.gz" --kind=cli --target="${{ matrix.target }}" --signed=false --notarized=false
       - name: Upload Linux CLI
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-linux-${{ matrix.target }}
           path: temp/release/platform
@@ -375,7 +375,7 @@ jobs:
             temp/release/final/SHA256SUMS
             temp/release/final/release-manifest.json
       - name: Upload final release set
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-final-${{ needs.release-plan.outputs.expected_tag }}
           path: temp/release/final

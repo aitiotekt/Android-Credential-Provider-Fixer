@@ -51,7 +51,7 @@ jobs:
           mise exec -- just build-android-release
           mise exec -- node scripts/android-release.mts stage
       - name: Preserve AAB before any Play request
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: android-${{ steps.plan.outputs.version }}-${{ steps.plan.outputs.versionCode }}-${{ github.run_attempt }}
           path: temp/release/android/
